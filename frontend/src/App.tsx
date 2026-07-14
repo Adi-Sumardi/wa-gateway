@@ -435,9 +435,7 @@ export default function App() {
         <main className="w-full max-w-[960px] bg-surface-container-lowest rounded-[32px] shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[600px] border border-outline-variant/30">
           <div className="flex-1 p-8 md:p-12 flex flex-col justify-center">
             <div className="mb-8 flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center text-on-primary-container font-bold">
-                W
-              </div>
+              <img src="/icon-192.png" alt="SendaGo Logo" className="w-10 h-10 object-contain rounded-xl" />
               <div>
                 <h1 className="font-headline-md text-2xl font-bold text-primary leading-none">Gateway Pro</h1>
                 <p className="font-label-md text-xs text-on-surface-variant uppercase tracking-widest mt-1">SendaGo Engine</p>
@@ -508,8 +506,8 @@ export default function App() {
           <div className="hidden md:flex w-full max-w-[420px] bg-primary/5 p-8 flex-col items-center justify-center text-center relative overflow-hidden">
             <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary-container/20 rounded-full blur-3xl"></div>
             <div className="relative z-10 flex flex-col items-center">
-              <div className="w-16 h-16 bg-white rounded-full shadow-md flex items-center justify-center mb-6">
-                <QrCode className="w-8 h-8 text-primary" />
+              <div className="w-16 h-16 bg-white rounded-2xl shadow-md flex items-center justify-center p-2 mb-6">
+                <img src="/icon-192.png" alt="SendaGo Logo" className="w-full h-full object-contain" />
               </div>
               <h3 className="font-headline-md text-xl font-bold text-on-surface mb-2 font-headline-lg">WhatsApp Gateway</h3>
               <p className="text-on-surface-variant text-sm mb-6 px-8 leading-relaxed">
@@ -547,9 +545,7 @@ export default function App() {
       <aside className={`fixed left-0 top-0 h-full w-sidebar-width bg-surface-container-low border-r border-outline-variant flex flex-col py-6 z-50 transition-transform duration-200 ease-in-out md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="px-6 mb-12">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center text-on-primary-container font-bold">
-              W
-            </div>
+            <img src="/icon-192.png" alt="SendaGo Logo" className="w-10 h-10 object-contain rounded-xl" />
             <div>
               <h1 className="font-headline-md text-lg font-bold text-primary">Gateway Pro</h1>
               <p className="font-label-md text-xs text-on-surface-variant font-semibold uppercase tracking-wider mt-0.5">SendaGo Hub</p>
