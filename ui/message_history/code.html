@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Gateway Pro - Message Logs</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "outline-variant": "#bbcbb9",
+                    "on-secondary-fixed-variant": "#005047",
+                    "secondary-fixed": "#a8f0e3",
+                    "tertiary": "#006b5f",
+                    "background": "#f7f9fc",
+                    "primary-fixed-dim": "#3de273",
+                    "surface-container-highest": "#e0e3e6",
+                    "primary": "#006d2f",
+                    "on-surface-variant": "#3c4a3d",
+                    "on-tertiary-fixed-variant": "#005047",
+                    "on-background": "#191c1e",
+                    "tertiary-container": "#63c9b9",
+                    "on-error": "#ffffff",
+                    "on-primary-container": "#005523",
+                    "inverse-primary": "#3de273",
+                    "on-secondary-fixed": "#00201c",
+                    "primary-container": "#25d366",
+                    "surface-variant": "#e0e3e6",
+                    "surface-container-lowest": "#ffffff",
+                    "outline": "#6c7b6b",
+                    "surface-container-low": "#f2f4f7",
+                    "on-primary": "#ffffff",
+                    "secondary-container": "#a5ede0",
+                    "surface-dim": "#d8dadd",
+                    "on-tertiary-fixed": "#00201c",
+                    "error-container": "#ffdad6",
+                    "inverse-surface": "#2d3133",
+                    "on-primary-fixed": "#002109",
+                    "inverse-on-surface": "#eff1f4",
+                    "on-secondary": "#ffffff",
+                    "surface-container-high": "#e6e8eb",
+                    "on-tertiary": "#ffffff",
+                    "primary-fixed": "#66ff8e",
+                    "surface-bright": "#f7f9fc",
+                    "on-tertiary-container": "#005249",
+                    "surface-tint": "#006d2f",
+                    "on-error-container": "#93000a",
+                    "secondary-fixed-dim": "#8cd4c7",
+                    "secondary": "#1c695f",
+                    "surface": "#f7f9fc",
+                    "on-secondary-container": "#226e63",
+                    "on-primary-fixed-variant": "#005322",
+                    "tertiary-fixed": "#8ff4e3",
+                    "tertiary-fixed-dim": "#72d8c8",
+                    "on-surface": "#191c1e",
+                    "surface-container": "#eceef1",
+                    "error": "#ba1a1a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "md": "24px",
+                    "container-max": "1440px",
+                    "lg": "40px",
+                    "sm": "12px",
+                    "base": "8px",
+                    "xl": "64px",
+                    "xs": "4px",
+                    "sidebar-width": "280px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Plus Jakarta Sans"],
+                    "label-md": ["Inter"],
+                    "title-lg": ["Plus Jakarta Sans"],
+                    "display-lg": ["Plus Jakarta Sans"],
+                    "headline-md": ["Plus Jakarta Sans"],
+                    "body-md": ["Inter"],
+                    "code-sm": ["Inter"],
+                    "headline-lg-mobile": ["Plus Jakarta Sans"],
+                    "body-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "500"}],
+                    "title-lg": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "display-lg": ["48px", {"lineHeight": "60px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "code-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fc;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .sidebar-active {
+            @apply bg-primary-container text-on-primary-container;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid #D1D7DB;
+            box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.04);
+        }
+        /* Custom Table Row Hover */
+        tr:hover {
+            background-color: #f2f4f7;
+        }
+    </style>
+</head>
+<body class="text-on-surface overflow-hidden">
+<!-- Shell: SideNavBar -->
+<aside class="fixed left-0 top-0 h-full w-sidebar-width bg-surface-container-low border-r border-outline-variant flex flex-col py-md z-50">
+<div class="px-md mb-lg">
+<h1 class="font-headline-md text-headline-md font-bold text-primary">Gateway Pro</h1>
+<p class="font-label-md text-label-md text-on-surface-variant opacity-70">Communication Hub</p>
+</div>
+<nav class="flex-grow flex flex-col gap-xs px-sm">
+<!-- Nav Item: Overview -->
+<a class="flex items-center gap-sm px-md py-sm text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Overview</span>
+</a>
+<!-- Nav Item: Devices -->
+<a class="flex items-center gap-sm px-md py-sm text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">devices</span>
+<span class="font-label-md text-label-md">Devices</span>
+</a>
+<!-- Nav Item: Messages (ACTIVE) -->
+<a class="flex items-center gap-sm px-md py-sm bg-primary-container text-on-primary-container rounded-xl font-bold active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-label-md text-label-md">Messages</span>
+</a>
+<!-- Nav Item: Settings -->
+<a class="flex items-center gap-sm px-md py-sm text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">settings_suggest</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</nav>
+<div class="mt-auto px-sm flex flex-col gap-xs">
+<button class="mb-md mx-sm bg-primary text-on-primary px-md py-sm rounded-full font-bold text-label-md flex items-center justify-center gap-xs">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                Connect New Device
+            </button>
+<a class="flex items-center gap-sm px-md py-sm text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-label-md text-label-md">Documentation</span>
+</a>
+<a class="flex items-center gap-sm px-md py-sm text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">help_outline</span>
+<span class="font-label-md text-label-md">Support</span>
+</a>
+</div>
+</aside>
+<!-- Shell: TopNavBar -->
+<header class="fixed top-0 right-0 left-sidebar-width flex justify-between items-center px-md h-16 z-40 bg-surface border-b border-outline-variant">
+<div class="flex items-center gap-md w-1/2">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-full py-2 pl-10 pr-4 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-body-md" placeholder="Search message history..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<nav class="hidden md:flex gap-md items-center mr-md">
+<a class="text-on-surface-variant hover:text-on-surface font-label-md text-label-md" href="#">Status</a>
+<a class="text-on-surface-variant hover:text-on-surface font-label-md text-label-md" href="#">API Docs</a>
+</nav>
+<button class="bg-primary-container text-on-primary-container px-md py-2 rounded-full font-bold text-label-md hover:opacity-90 active:scale-95 transition-all">
+                Upgrade Plan
+            </button>
+<div class="flex items-center gap-xs ml-sm">
+<button class="p-2 hover:bg-surface-container-low rounded-full transition-all">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+</button>
+<button class="p-1 hover:bg-surface-container-low rounded-full transition-all flex items-center gap-xs">
+<img class="w-8 h-8 rounded-full border border-outline-variant" data-alt="Professional headshot of a customer success manager in a modern office, wearing professional attire, with soft corporate lighting and a blurred high-tech background. The image has a clean, airy, and trustworthy aesthetic with natural colors." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA6p1NRoxdihJbqiheMv09JRqhL6YJDV4SHJCK1VeLxadIYy3d7u961VnfmUuCJBocEWmvpEsdY1w4QAkEPaHxfWBnNTKaRnvi4HIEQbeAr1F8aAZvB5ztJEcAZUZmOvH7mcndsZyoBCX2CKlV2rIj1fAFK0O310bHoiJNgf49kbISuR8NN_zM0B1XpNukAaNn1TkRVmX77_i-aJSfESnXt3M8h0WIYQbVxGoi8yrCKk6bSU8OHib80"/>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="ml-sidebar-width pt-16 h-screen overflow-y-auto bg-background">
+<div class="max-w-container-max mx-auto p-md">
+<!-- Page Header & Actions -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-md mb-lg">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">Message History</h2>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-xl">Review and manage your communication logs. Track message delivery statuses across all connected WhatsApp instances.</p>
+</div>
+<div class="flex gap-sm">
+<button class="flex items-center gap-xs px-md py-sm border border-outline-variant rounded-xl font-bold text-label-md text-on-surface-variant hover:bg-surface-container-low transition-all">
+<span class="material-symbols-outlined">download</span>
+                        Export logs
+                    </button>
+<button class="flex items-center gap-xs px-md py-sm bg-primary text-on-primary rounded-xl font-bold text-label-md hover:shadow-lg transition-all">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">send</span>
+                        New Message
+                    </button>
+</div>
+</div>
+<!-- Bento Filter Section -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-md mb-md">
+<div class="glass-card rounded-2xl p-md flex flex-col justify-center">
+<label class="text-label-md font-bold text-on-surface-variant mb-xs">Status</label>
+<select class="bg-transparent border-none focus:ring-0 text-body-md font-medium text-on-surface cursor-pointer">
+<option>All Statuses</option>
+<option>Sent</option>
+<option>Delivered</option>
+<option>Read</option>
+<option>Failed</option>
+</select>
+</div>
+<div class="glass-card rounded-2xl p-md flex flex-col justify-center">
+<label class="text-label-md font-bold text-on-surface-variant mb-xs">Device</label>
+<select class="bg-transparent border-none focus:ring-0 text-body-md font-medium text-on-surface cursor-pointer">
+<option>All Devices</option>
+<option>Marketing Team #1</option>
+<option>Customer Support</option>
+<option>API Gateway Prod</option>
+</select>
+</div>
+<div class="glass-card rounded-2xl p-md flex flex-col justify-center">
+<label class="text-label-md font-bold text-on-surface-variant mb-xs">Date Range</label>
+<div class="flex items-center gap-xs text-body-md font-medium text-on-surface">
+<span class="material-symbols-outlined text-[18px]">calendar_today</span>
+<span>Last 7 Days</span>
+</div>
+</div>
+<div class="bg-secondary-container text-on-secondary-container rounded-2xl p-md flex items-center gap-md">
+<div class="p-sm bg-white/20 rounded-xl">
+<span class="material-symbols-outlined text-[28px]">analytics</span>
+</div>
+<div>
+<div class="text-label-md opacity-80">Success Rate</div>
+<div class="text-title-lg font-bold">98.4%</div>
+</div>
+</div>
+</div>
+<!-- Data Table Card -->
+<div class="glass-card rounded-2xl overflow-hidden mb-md">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low border-b border-outline-variant">
+<tr>
+<th class="px-md py-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Recipient</th>
+<th class="px-md py-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Message Content</th>
+<th class="px-md py-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-center">Status</th>
+<th class="px-md py-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Device</th>
+<th class="px-md py-sm font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right">Timestamp</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/30">
+<!-- Row 1 -->
+<tr class="transition-colors">
+<td class="px-md py-md">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 rounded-full bg-primary-container/20 flex items-center justify-center text-primary font-bold text-[12px]">JD</div>
+<div>
+<div class="font-bold text-body-md text-on-surface">+1 (555) 012-3456</div>
+<div class="text-label-md text-on-surface-variant">John Doe</div>
+</div>
+</div>
+</td>
+<td class="px-md py-md">
+<div class="text-body-md text-on-surface truncate max-w-xs">Your appointment for tomorrow is confirmed. See you at 10 AM...</div>
+</td>
+<td class="px-md py-md text-center">
+<span class="px-3 py-1 bg-primary-container text-on-primary-container rounded-full text-label-md font-bold">Read</span>
+</td>
+<td class="px-md py-md">
+<span class="text-body-md text-on-surface-variant">Customer Support</span>
+</td>
+<td class="px-md py-md text-right">
+<div class="text-body-md font-medium text-on-surface">Oct 24, 2023</div>
+<div class="text-label-md text-on-surface-variant">14:23:45</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="transition-colors">
+<td class="px-md py-md">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 rounded-full bg-secondary-container/20 flex items-center justify-center text-secondary font-bold text-[12px]">SM</div>
+<div>
+<div class="font-bold text-body-md text-on-surface">+44 7700 900077</div>
+<div class="text-label-md text-on-surface-variant">Sarah Miller</div>
+</div>
+</div>
+</td>
+<td class="px-md py-md">
+<div class="text-body-md text-on-surface truncate max-w-xs">New promo code: SAVE20. Get 20% off on your next purchase...</div>
+</td>
+<td class="px-md py-md text-center">
+<span class="px-3 py-1 bg-surface-container-high text-on-surface-variant rounded-full text-label-md font-bold">Delivered</span>
+</td>
+<td class="px-md py-md">
+<span class="text-body-md text-on-surface-variant">Marketing Team #1</span>
+</td>
+<td class="px-md py-md text-right">
+<div class="text-body-md font-medium text-on-surface">Oct 24, 2023</div>
+<div class="text-label-md text-on-surface-variant">14:15:10</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="transition-colors">
+<td class="px-md py-md">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 rounded-full bg-error-container/20 flex items-center justify-center text-error font-bold text-[12px]">RK</div>
+<div>
+<div class="font-bold text-body-md text-on-surface">+61 412 345 678</div>
+<div class="text-label-md text-on-surface-variant">Robert King</div>
+</div>
+</div>
+</td>
+<td class="px-md py-md">
+<div class="text-body-md text-on-surface truncate max-w-xs">Security Alert: Unusual login attempt detected from IP...</div>
+</td>
+<td class="px-md py-md text-center">
+<span class="px-3 py-1 bg-error-container text-on-error-container rounded-full text-label-md font-bold">Failed</span>
+</td>
+<td class="px-md py-md">
+<span class="text-body-md text-on-surface-variant">API Gateway Prod</span>
+</td>
+<td class="px-md py-md text-right">
+<div class="text-body-md font-medium text-on-surface">Oct 24, 2023</div>
+<div class="text-label-md text-on-surface-variant">13:58:22</div>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="transition-colors">
+<td class="px-md py-md">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 rounded-full bg-tertiary-container/20 flex items-center justify-center text-tertiary font-bold text-[12px]">EM</div>
+<div>
+<div class="font-bold text-body-md text-on-surface">+1 (555) 987-6543</div>
+<div class="text-label-md text-on-surface-variant">Emily Watson</div>
+</div>
+</div>
+</td>
+<td class="px-md py-md">
+<div class="text-body-md text-on-surface truncate max-w-xs">Hi Emily, your feedback is very important to us. Rate us!</div>
+</td>
+<td class="px-md py-md text-center">
+<span class="px-3 py-1 bg-primary-container/20 text-primary rounded-full text-label-md font-bold">Sent</span>
+</td>
+<td class="px-md py-md">
+<span class="text-body-md text-on-surface-variant">Customer Support</span>
+</td>
+<td class="px-md py-md text-right">
+<div class="text-body-md font-medium text-on-surface">Oct 24, 2023</div>
+<div class="text-label-md text-on-surface-variant">13:42:01</div>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="transition-colors">
+<td class="px-md py-md">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 rounded-full bg-primary-container/20 flex items-center justify-center text-primary font-bold text-[12px]">AL</div>
+<div>
+<div class="font-bold text-body-md text-on-surface">+55 11 91234-5678</div>
+<div class="text-label-md text-on-surface-variant">Ana Lima</div>
+</div>
+</div>
+</td>
+<td class="px-md py-md">
+<div class="text-body-md text-on-surface truncate max-w-xs">Bem-vinda ao Gateway Pro! Sua conta foi ativada.</div>
+</td>
+<td class="px-md py-md text-center">
+<span class="px-3 py-1 bg-primary-container text-on-primary-container rounded-full text-label-md font-bold">Read</span>
+</td>
+<td class="px-md py-md">
+<span class="text-body-md text-on-surface-variant">API Gateway Prod</span>
+</td>
+<td class="px-md py-md text-right">
+<div class="text-body-md font-medium text-on-surface">Oct 24, 2023</div>
+<div class="text-label-md text-on-surface-variant">12:10:55</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination Footer -->
+<div class="px-md py-sm bg-surface-container-low border-t border-outline-variant flex justify-between items-center">
+<div class="text-label-md text-on-surface-variant font-medium">
+                        Showing <span class="text-on-surface">1 - 5</span> of <span class="text-on-surface">1,248</span> results
+                    </div>
+<div class="flex items-center gap-xs">
+<button class="p-1 hover:bg-surface-container-high rounded-lg text-on-surface-variant disabled:opacity-30" disabled="">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<div class="flex items-center gap-xs">
+<button class="w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-on-primary font-bold text-label-md">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container-high text-on-surface-variant font-medium text-label-md">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container-high text-on-surface-variant font-medium text-label-md">3</button>
+<span class="text-on-surface-variant">...</span>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container-high text-on-surface-variant font-medium text-label-md">250</button>
+</div>
+<button class="p-1 hover:bg-surface-container-high rounded-lg text-on-surface-variant">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Contextual Stats -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-md">
+<div class="glass-card rounded-2xl p-md">
+<div class="flex justify-between items-start mb-sm">
+<div class="text-label-md font-bold text-on-surface-variant">Delivery Speed</div>
+<span class="material-symbols-outlined text-primary">bolt</span>
+</div>
+<div class="text-headline-md font-bold text-on-surface">1.2s</div>
+<div class="text-label-md text-primary mt-xs font-bold">Avg. across all devices</div>
+</div>
+<div class="glass-card rounded-2xl p-md">
+<div class="flex justify-between items-start mb-sm">
+<div class="text-label-md font-bold text-on-surface-variant">Total Messages Today</div>
+<span class="material-symbols-outlined text-tertiary">send</span>
+</div>
+<div class="text-headline-md font-bold text-on-surface">12,482</div>
+<div class="text-label-md text-on-surface-variant mt-xs">+12% from yesterday</div>
+</div>
+<div class="glass-card rounded-2xl p-md">
+<div class="flex justify-between items-start mb-sm">
+<div class="text-label-md font-bold text-on-surface-variant">Failed Broadcasts</div>
+<span class="material-symbols-outlined text-error">error_outline</span>
+</div>
+<div class="text-headline-md font-bold text-on-surface">14</div>
+<div class="text-label-md text-error mt-xs font-bold">Action required</div>
+</div>
+</div>
+</div>
+</main>
+<!-- FAB Interaction (Hidden if not main screen, but kept for context) -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-primary-container text-on-primary-container rounded-2xl shadow-xl hover:scale-110 active:scale-95 transition-all flex items-center justify-center z-50">
+<span class="material-symbols-outlined text-[32px]">support_agent</span>
+</button>
+<script>
+        // Simple micro-interaction for the search bar focus effect
+        const searchInput = document.querySelector('input[type="text"]');
+        searchInput.addEventListener('focus', () => {
+            searchInput.parentElement.classList.add('ring-2', 'ring-primary/20');
+        });
+        searchInput.addEventListener('blur', () => {
+            searchInput.parentElement.classList.remove('ring-2', 'ring-primary/20');
+        });
+
+        // Toggle dropdown logic (placeholder for actual functionality)
+        const selects = document.querySelectorAll('select');
+        selects.forEach(select => {
+            select.addEventListener('change', (e) => {
+                console.log(`Filtering by: ${e.target.value}`);
+                // In a real app, this would trigger a table re-render
+            });
+        });
+
+        // Hover lift effect for glass-cards
+        const cards = document.querySelectorAll('.glass-card');
+        cards.forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.transform = 'translateY(-2px)';
+                card.style.transition = 'transform 0.2s ease-out';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'translateY(0)';
+            });
+        });
+    </script>
+</body></html>

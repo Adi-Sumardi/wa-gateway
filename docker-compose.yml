@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: sendago-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sendago
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sendago-backend
+    restart: always
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/sendago?schema=public
+      JWT_SECRET: sendago-super-secret-jwt-key
+      GATEWAY_TOKEN: sendago-gateway-secret-token
+      PORT: 5001
+      CORS_ORIGIN: http://localhost:5173
+    ports:
+      - "5001:5001"
+
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: sendago-gateway
+    restart: always
+    depends_on:
+      - backend
+    environment:
+      BACKEND_URL: http://backend:5001
+      GATEWAY_TOKEN: sendago-gateway-secret-token
+      MIN_SEND_DELAY: 3000
+      MAX_SEND_DELAY: 7000
+    volumes:
+      - gateway_auth:/app/.wwebjs_auth
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sendago-frontend
+    restart: always
+    ports:
+      - "5173:80"
+
+volumes:
+  postgres_data:
+  gateway_auth:

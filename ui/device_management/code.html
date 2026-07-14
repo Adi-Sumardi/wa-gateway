@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Gateway Pro | Device Management</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "outline-variant": "#bbcbb9",
+                    "on-secondary-fixed-variant": "#005047",
+                    "secondary-fixed": "#a8f0e3",
+                    "tertiary": "#006b5f",
+                    "background": "#f7f9fc",
+                    "primary-fixed-dim": "#3de273",
+                    "surface-container-highest": "#e0e3e6",
+                    "primary": "#006d2f",
+                    "on-surface-variant": "#3c4a3d",
+                    "on-tertiary-fixed-variant": "#005047",
+                    "on-background": "#191c1e",
+                    "tertiary-container": "#63c9b9",
+                    "on-error": "#ffffff",
+                    "on-primary-container": "#005523",
+                    "inverse-primary": "#3de273",
+                    "on-secondary-fixed": "#00201c",
+                    "primary-container": "#25d366",
+                    "surface-variant": "#e0e3e6",
+                    "surface-container-lowest": "#ffffff",
+                    "outline": "#6c7b6b",
+                    "surface-container-low": "#f2f4f7",
+                    "on-primary": "#ffffff",
+                    "secondary-container": "#a5ede0",
+                    "surface-dim": "#d8dadd",
+                    "on-tertiary-fixed": "#00201c",
+                    "error-container": "#ffdad6",
+                    "inverse-surface": "#2d3133",
+                    "on-primary-fixed": "#002109",
+                    "inverse-on-surface": "#eff1f4",
+                    "on-secondary": "#ffffff",
+                    "surface-container-high": "#e6e8eb",
+                    "on-tertiary": "#ffffff",
+                    "primary-fixed": "#66ff8e",
+                    "surface-bright": "#f7f9fc",
+                    "on-tertiary-container": "#005249",
+                    "surface-tint": "#006d2f",
+                    "on-error-container": "#93000a",
+                    "secondary-fixed-dim": "#8cd4c7",
+                    "secondary": "#1c695f",
+                    "surface": "#f7f9fc",
+                    "on-secondary-container": "#226e63",
+                    "on-primary-fixed-variant": "#005322",
+                    "tertiary-fixed": "#8ff4e3",
+                    "tertiary-fixed-dim": "#72d8c8",
+                    "on-surface": "#191c1e",
+                    "surface-container": "#eceef1",
+                    "error": "#ba1a1a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "md": "24px",
+                    "container-max": "1440px",
+                    "lg": "40px",
+                    "sm": "12px",
+                    "base": "8px",
+                    "xl": "64px",
+                    "xs": "4px",
+                    "sidebar-width": "280px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Plus Jakarta Sans"],
+                    "label-md": ["Inter"],
+                    "title-lg": ["Plus Jakarta Sans"],
+                    "display-lg": ["Plus Jakarta Sans"],
+                    "headline-md": ["Plus Jakarta Sans"],
+                    "body-md": ["Inter"],
+                    "code-sm": ["Inter"],
+                    "headline-lg-mobile": ["Plus Jakarta Sans"],
+                    "body-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "500"}],
+                    "title-lg": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "display-lg": ["48px", {"lineHeight": "60px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "code-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #f7f9fc;
+            font-family: 'Inter', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+            line-height: 1;
+        }
+        .card-shadow {
+            box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.04);
+        }
+        .sidebar-active-pill {
+            position: relative;
+        }
+        .sidebar-active-pill::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 20%;
+            height: 60%;
+            width: 4px;
+            background-color: #006d2f;
+            border-radius: 0 4px 4px 0;
+        }
+        /* Custom QR Scanner Overlay Effect */
+        .qr-overlay {
+            background: linear-gradient(0deg, rgba(0,109,47,0.1) 0%, rgba(0,109,47,0) 50%, rgba(0,109,47,0.1) 100%);
+            animation: scan 2s linear infinite;
+        }
+        @keyframes scan {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+    </style>
+</head>
+<body class="text-on-surface">
+<!-- Sidebar Navigation -->
+<aside class="fixed left-0 top-0 h-full w-sidebar-width bg-surface-container-low border-r border-outline-variant flex flex-col py-md z-50">
+<div class="px-md mb-xl">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">hub</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">Gateway Pro</h1>
+<p class="font-label-md text-label-md text-on-surface-variant">Communication Hub</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-sm space-y-xs">
+<a class="flex items-center gap-sm px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Overview</span>
+</a>
+<a class="flex items-center gap-sm px-md py-sm bg-primary-container text-on-primary-container rounded-xl font-bold sidebar-active-pill" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">devices</span>
+<span class="font-label-md text-label-md">Devices</span>
+</a>
+<a class="flex items-center gap-sm px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-label-md text-label-md">Messages</span>
+</a>
+<a class="flex items-center gap-sm px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">settings_suggest</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</nav>
+<div class="mt-auto px-sm space-y-xs">
+<button class="w-full mb-md bg-primary text-on-primary font-bold py-sm px-md rounded-xl flex items-center justify-center gap-sm hover:opacity-90 active:scale-95 transition-all" onclick="toggleModal('add-device-modal')">
+<span class="material-symbols-outlined">add</span>
+<span class="font-label-md text-label-md uppercase tracking-wider">Connect New Device</span>
+</button>
+<div class="h-px bg-outline-variant mx-md mb-sm"></div>
+<a class="flex items-center gap-sm px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-label-md text-label-md">Documentation</span>
+</a>
+<a class="flex items-center gap-sm px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">help_outline</span>
+<span class="font-label-md text-label-md">Support</span>
+</a>
+</div>
+</aside>
+<!-- Top AppBar -->
+<header class="fixed top-0 right-0 left-sidebar-width flex justify-between items-center px-md h-16 z-40 bg-surface border-b border-outline-variant">
+<div class="flex items-center gap-md">
+<div class="relative">
+<input class="bg-surface-container-low border-none rounded-full px-xl py-xs w-64 text-body-md focus:ring-2 focus:ring-primary" placeholder="Search devices..." type="text"/>
+<span class="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+</div>
+<nav class="hidden lg:flex items-center gap-md">
+<a class="font-label-md text-label-md text-primary border-b-2 border-primary font-bold pb-xs" href="#">Status</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors" href="#">API Docs</a>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<button class="bg-secondary-container text-on-secondary-container font-bold px-md py-xs rounded-full font-label-md text-label-md hover:opacity-90 transition-all">
+                Upgrade Plan
+            </button>
+<div class="flex items-center gap-xs">
+<button class="p-2 hover:bg-surface-container-low rounded-full transition-all">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant bg-surface-container">
+<img class="w-full h-full object-cover" data-alt="A professional user profile avatar for a corporate dashboard, high-resolution portrait of a tech professional in a clean studio setting with soft lighting and a neutral professional background, following a modern minimalist aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBL3xq0paxWGLtyrNtqWZ28IQGllns5fdfNIsfCcq0HNbWBquEFey7WW6c3991vESByiHKvEhWTo0PWXKVy71fhhglRx8GCJBCJ2mz2DfKu0TllD-rbKc8mcPgWZ94_Sdbd8QOtPWsSQ0qKzTxgo7uBkRx8UsrVC-qEv8TYgeS6AN6CRy0KUnoNN-C9mFYbL_MrY70wSr26C_zUqU5dymPwr8v5KIG2DmCYIwc9_gzSP-zRmnpOQABk"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-sidebar-width pt-16 min-h-screen">
+<div class="p-md lg:p-xl max-w-container-max mx-auto">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-md mb-xl">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface mb-xs">Device Management</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Manage your connected WhatsApp instances and monitor their real-time health.</p>
+</div>
+<div class="flex gap-sm">
+<div class="flex flex-col items-end">
+<div class="flex items-center gap-xs mb-xs">
+<div class="w-2 h-2 rounded-full bg-primary-container"></div>
+<span class="font-label-md text-label-md text-primary font-bold">12 Connected</span>
+</div>
+<span class="font-label-md text-label-md text-on-surface-variant">System Latency: 42ms</span>
+</div>
+</div>
+</div>
+<!-- Bento Grid - Device List -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md">
+<!-- Device Card 1 (Online) -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md card-shadow group">
+<div class="flex justify-between items-start mb-md">
+<div class="flex items-center gap-sm">
+<div class="w-12 h-12 bg-primary-container/10 rounded-xl flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">smartphone</span>
+</div>
+<div>
+<h3 class="font-title-lg text-title-lg text-on-surface leading-tight">iPhone 14 Pro</h3>
+<p class="font-code-sm text-code-sm text-on-surface-variant">+1 (555) 012-3456</p>
+</div>
+</div>
+<span class="bg-primary-container text-on-primary-container px-sm py-1 rounded-full font-label-md text-label-md font-bold flex items-center gap-xs">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                            Online
+                        </span>
+</div>
+<div class="space-y-sm mb-md">
+<div class="flex justify-between items-center">
+<span class="font-label-md text-label-md text-on-surface-variant">Battery</span>
+<div class="flex items-center gap-xs">
+<span class="font-label-md text-label-md font-bold">84%</span>
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">battery_5_bar</span>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-label-md text-label-md text-on-surface-variant">Last Seen</span>
+<span class="font-label-md text-label-md">Just now</span>
+</div>
+<div class="w-full h-1 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[84%]"></div>
+</div>
+</div>
+<div class="flex gap-xs mt-md pt-md border-t border-outline-variant">
+<button class="flex-1 py-2 hover:bg-surface-container-low text-on-surface rounded-lg transition-colors flex items-center justify-center gap-xs group-hover:text-primary">
+<span class="material-symbols-outlined text-base">refresh</span>
+<span class="font-label-md text-label-md">Restart</span>
+</button>
+<button class="flex-1 py-2 hover:bg-surface-container-low text-on-surface rounded-lg transition-colors flex items-center justify-center gap-xs">
+<span class="material-symbols-outlined text-base">logout</span>
+<span class="font-label-md text-label-md">Logout</span>
+</button>
+<button class="w-10 h-10 hover:bg-error-container hover:text-on-error-container text-on-surface-variant rounded-lg transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined text-base">delete</span>
+</button>
+</div>
+</div>
+<!-- Device Card 2 (Offline) -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md card-shadow group opacity-70 grayscale-[0.5] hover:grayscale-0 hover:opacity-100 transition-all">
+<div class="flex justify-between items-start mb-md">
+<div class="flex items-center gap-sm">
+<div class="w-12 h-12 bg-surface-container rounded-xl flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-2xl">smartphone</span>
+</div>
+<div>
+<h3 class="font-title-lg text-title-lg text-on-surface leading-tight">Pixel 7</h3>
+<p class="font-code-sm text-code-sm text-on-surface-variant">+44 7700 900077</p>
+</div>
+</div>
+<span class="bg-surface-container text-on-surface-variant px-sm py-1 rounded-full font-label-md text-label-md font-bold flex items-center gap-xs">
+                            Offline
+                        </span>
+</div>
+<div class="space-y-sm mb-md">
+<div class="flex justify-between items-center">
+<span class="font-label-md text-label-md text-on-surface-variant">Battery</span>
+<div class="flex items-center gap-xs">
+<span class="font-label-md text-label-md font-bold">12%</span>
+<span class="material-symbols-outlined text-error text-sm">battery_alert</span>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-label-md text-label-md text-on-surface-variant">Last Seen</span>
+<span class="font-label-md text-label-md">2 days ago</span>
+</div>
+<div class="w-full h-1 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-error w-[12%]"></div>
+</div>
+</div>
+<div class="flex gap-xs mt-md pt-md border-t border-outline-variant">
+<button class="flex-1 py-2 bg-primary text-on-primary rounded-lg transition-colors flex items-center justify-center gap-xs shadow-md">
+<span class="material-symbols-outlined text-base">link</span>
+<span class="font-label-md text-label-md">Reconnect</span>
+</button>
+<button class="w-10 h-10 hover:bg-error-container hover:text-on-error-container text-on-surface-variant rounded-lg transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined text-base">delete</span>
+</button>
+</div>
+</div>
+<!-- Device Card 3 (Connecting) -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md card-shadow">
+<div class="flex justify-between items-start mb-md">
+<div class="flex items-center gap-sm">
+<div class="w-12 h-12 bg-tertiary-container/20 rounded-xl flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">tablet_android</span>
+</div>
+<div>
+<h3 class="font-title-lg text-title-lg text-on-surface leading-tight">iPad Air</h3>
+<p class="font-code-sm text-code-sm text-on-surface-variant">+61 400 000 000</p>
+</div>
+</div>
+<span class="bg-tertiary-container text-on-tertiary-container px-sm py-1 rounded-full font-label-md text-label-md font-bold flex items-center gap-xs">
+<span class="material-symbols-outlined text-sm animate-spin">sync</span>
+                            Syncing
+                        </span>
+</div>
+<div class="space-y-sm mb-md">
+<div class="flex justify-between items-center">
+<span class="font-label-md text-label-md text-on-surface-variant">Battery</span>
+<div class="flex items-center gap-xs">
+<span class="font-label-md text-label-md font-bold">50%</span>
+<span class="material-symbols-outlined text-on-surface-variant text-sm">battery_4_bar</span>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-label-md text-label-md text-on-surface-variant">Last Seen</span>
+<span class="font-label-md text-label-md">Connecting...</span>
+</div>
+<div class="w-full h-1 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-tertiary w-1/2 animate-pulse"></div>
+</div>
+</div>
+<div class="flex gap-xs mt-md pt-md border-t border-outline-variant">
+<button class="flex-1 py-2 opacity-50 cursor-not-allowed text-on-surface-variant rounded-lg flex items-center justify-center gap-xs" disabled="">
+<span class="material-symbols-outlined text-base">refresh</span>
+<span class="font-label-md text-label-md">Restart</span>
+</button>
+<button class="flex-1 py-2 hover:bg-surface-container-low text-on-surface rounded-lg transition-colors flex items-center justify-center gap-xs">
+<span class="material-symbols-outlined text-base">cancel</span>
+<span class="font-label-md text-label-md">Cancel</span>
+</button>
+</div>
+</div>
+<!-- Add New Device Placeholder Card -->
+<button class="border-2 border-dashed border-outline-variant rounded-xl p-md flex flex-col items-center justify-center gap-sm hover:border-primary hover:bg-primary-container/5 transition-all group min-h-[220px]" onclick="toggleModal('add-device-modal')">
+<div class="w-16 h-16 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant group-hover:bg-primary-container group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-3xl">qr_code_scanner</span>
+</div>
+<div class="text-center">
+<p class="font-title-lg text-title-lg text-on-surface mb-xs">Add New Instance</p>
+<p class="font-body-md text-body-md text-on-surface-variant">Scan QR to connect device</p>
+</div>
+</button>
+</div>
+<!-- Dashboard Insights Section -->
+<div class="mt-xl grid grid-cols-1 lg:grid-cols-3 gap-md">
+<div class="lg:col-span-2 bg-surface-container-lowest border border-outline-variant rounded-xl p-md card-shadow">
+<div class="flex items-center justify-between mb-md">
+<h3 class="font-title-lg text-title-lg">System Health</h3>
+<span class="text-primary font-label-md text-label-md font-bold">Live Monitor</span>
+</div>
+<div class="h-48 flex items-end gap-xs">
+<!-- Mockup Activity Chart -->
+<div class="flex-1 bg-primary-container/20 rounded-t-lg h-24"></div>
+<div class="flex-1 bg-primary-container/30 rounded-t-lg h-32"></div>
+<div class="flex-1 bg-primary-container/40 rounded-t-lg h-16"></div>
+<div class="flex-1 bg-primary-container/20 rounded-t-lg h-40"></div>
+<div class="flex-1 bg-primary-container/50 rounded-t-lg h-28"></div>
+<div class="flex-1 bg-primary-container/30 rounded-t-lg h-36"></div>
+<div class="flex-1 bg-primary-container/40 rounded-t-lg h-44"></div>
+<div class="flex-1 bg-primary-container/20 rounded-t-lg h-32"></div>
+<div class="flex-1 bg-primary-container/30 rounded-t-lg h-12"></div>
+<div class="flex-1 bg-primary-container/50 rounded-t-lg h-38"></div>
+</div>
+<div class="mt-md flex items-center justify-between text-on-surface-variant font-label-md text-label-md">
+<span>12:00 PM</span>
+<span>04:00 PM</span>
+<span>08:00 PM</span>
+</div>
+</div>
+<div class="bg-primary text-on-primary rounded-xl p-md card-shadow flex flex-col justify-between relative overflow-hidden">
+<!-- Background Decoration -->
+<div class="absolute -right-12 -top-12 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
+<div>
+<span class="material-symbols-outlined text-4xl mb-md">verified_user</span>
+<h3 class="font-headline-md text-headline-md font-bold mb-xs">Enterprise Security</h3>
+<p class="font-body-md text-body-md opacity-80 mb-md leading-relaxed">
+                            Your gateway sessions are end-to-end encrypted. We never store message content on our servers.
+                        </p>
+</div>
+<button class="w-full bg-white text-primary font-bold py-sm rounded-xl hover:bg-opacity-90 transition-all">
+                        Audit Logs
+                    </button>
+</div>
+</div>
+</div>
+</main>
+<!-- Modal: Add New Device (QR Scanning) -->
+<div class="fixed inset-0 z-[100] hidden items-center justify-center p-md" id="add-device-modal">
+<div class="absolute inset-0 bg-on-background/60 backdrop-blur-sm" onclick="toggleModal('add-device-modal')"></div>
+<div class="relative bg-surface-container-lowest w-full max-w-md rounded-2xl p-xl card-shadow overflow-hidden">
+<div class="flex justify-between items-start mb-md">
+<div>
+<h2 class="font-headline-md text-headline-md font-bold text-on-surface">Pair New Device</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Open WhatsApp &gt; Settings &gt; Linked Devices</p>
+</div>
+<button class="p-2 hover:bg-surface-container-low rounded-full" onclick="toggleModal('add-device-modal')">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- QR Code Section -->
+<div class="relative aspect-square w-full max-w-[280px] mx-auto bg-white border border-outline-variant p-md rounded-xl flex items-center justify-center overflow-hidden">
+<div class="qr-overlay absolute inset-0 z-10"></div>
+<img class="w-full h-full object-contain relative z-0" data-alt="A clean high-contrast QR code generated on a white minimalist background with subtle rounded edges and the WhatsApp logo in the center, professional corporate tech design." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD2VLZkLgAJicl2K7h8ykSq350qyjJAfgoM7UyMkCIsGCDKl2_P1HaHWCnessNmih9k_zTvCCn1yfw30ktYHYuuR3sa16Ozxhi7jEujbMF8KD39Cr4RufrWYJ8np5mdK_mJd4txisrQRU25FolQdIkvUjLO7HMkD2WjAkC1F6VxLA8d1UaqOdq1pLw0EPv46e91VvxvWJjJ5dnx4KPTifeX2kvu7eyF69B7rUCTm8QmcS6h3jRkTiLl"/>
+<!-- Corner Indicators -->
+<div class="absolute top-4 left-4 w-6 h-6 border-t-4 border-l-4 border-primary"></div>
+<div class="absolute top-4 right-4 w-6 h-6 border-t-4 border-r-4 border-primary"></div>
+<div class="absolute bottom-4 left-4 w-6 h-6 border-b-4 border-l-4 border-primary"></div>
+<div class="absolute bottom-4 right-4 w-6 h-6 border-b-4 border-r-4 border-primary"></div>
+</div>
+<div class="mt-xl space-y-md text-center">
+<div class="flex items-center justify-center gap-sm text-primary">
+<span class="material-symbols-outlined animate-pulse">broadcast_on_home</span>
+<span class="font-label-md text-label-md font-bold tracking-widest uppercase">Waiting for connection...</span>
+</div>
+<p class="font-label-md text-label-md text-on-surface-variant px-md">
+                    Ensure your phone is connected to the internet and has a stable connection for the best experience.
+                </p>
+<div class="flex gap-sm">
+<button class="flex-1 py-sm border border-outline text-on-surface font-bold rounded-xl hover:bg-surface-container-low transition-all" onclick="toggleModal('add-device-modal')">
+                        Cancel
+                    </button>
+<button class="flex-1 py-sm bg-primary text-on-primary font-bold rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-xs">
+<span class="material-symbols-outlined text-base">help</span>
+                        Need Help?
+                    </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Micro-interaction Scripts -->
+<script>
+        function toggleModal(id) {
+            const modal = document.getElementById(id);
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                document.body.style.overflow = 'hidden';
+            } else {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                document.body.style.overflow = 'auto';
+            }
+        }
+
+        // Add hover lift effect to cards via JS for more control
+        document.querySelectorAll('.card-shadow').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.transform = 'translateY(-4px)';
+                card.style.transition = 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'translateY(0px)';
+            });
+        });
+    </script>
+</body></html>

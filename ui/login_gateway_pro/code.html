@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Gateway Pro | Login</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary-fixed": "#8ff4e3",
+                    "surface-bright": "#f7f9fc",
+                    "tertiary-container": "#63c9b9",
+                    "on-secondary-fixed-variant": "#005047",
+                    "on-primary-fixed": "#002109",
+                    "on-secondary": "#ffffff",
+                    "surface-container-high": "#e6e8eb",
+                    "surface-variant": "#e0e3e6",
+                    "on-primary-container": "#005523",
+                    "primary-fixed": "#66ff8e",
+                    "error": "#ba1a1a",
+                    "tertiary-fixed-dim": "#72d8c8",
+                    "surface-container": "#eceef1",
+                    "primary": "#006d2f",
+                    "outline": "#6c7b6b",
+                    "on-surface": "#191c1e",
+                    "surface": "#f7f9fc",
+                    "secondary-fixed": "#a8f0e3",
+                    "secondary": "#1c695f",
+                    "surface-container-lowest": "#ffffff",
+                    "inverse-primary": "#3de273",
+                    "on-background": "#191c1e",
+                    "on-tertiary-container": "#005249",
+                    "on-primary-fixed-variant": "#005322",
+                    "surface-dim": "#d8dadd",
+                    "on-tertiary-fixed": "#00201c",
+                    "background": "#f7f9fc",
+                    "outline-variant": "#bbcbb9",
+                    "on-tertiary-fixed-variant": "#005047",
+                    "surface-container-highest": "#e0e3e6",
+                    "secondary-container": "#a5ede0",
+                    "on-tertiary": "#ffffff",
+                    "surface-container-low": "#f2f4f7",
+                    "on-secondary-container": "#226e63",
+                    "tertiary": "#006b5f",
+                    "inverse-surface": "#2d3133",
+                    "primary-fixed-dim": "#3de273",
+                    "on-error-container": "#93000a",
+                    "inverse-on-surface": "#eff1f4",
+                    "on-primary": "#ffffff",
+                    "on-surface-variant": "#3c4a3d",
+                    "on-error": "#ffffff",
+                    "primary-container": "#25d366",
+                    "surface-tint": "#006d2f",
+                    "error-container": "#ffdad6",
+                    "secondary-fixed-dim": "#8cd4c7",
+                    "on-secondary-fixed": "#00201c"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "xl": "64px",
+                    "base": "8px",
+                    "sidebar-width": "280px",
+                    "container-max": "1440px",
+                    "xs": "4px",
+                    "md": "24px",
+                    "lg": "40px",
+                    "sm": "12px"
+            },
+            "fontFamily": {
+                    "headline-md": ["Plus Jakarta Sans"],
+                    "body-md": ["Inter"],
+                    "title-lg": ["Plus Jakarta Sans"],
+                    "label-md": ["Inter"],
+                    "headline-lg": ["Plus Jakarta Sans"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .qr-gradient {
+            background: radial-gradient(circle at center, #ffffff 0%, #f0fdf4 100%);
+        }
+    </style>
+</head>
+<body class="bg-surface-container text-on-surface font-body-md min-h-screen flex items-center justify-center p-md">
+<!-- Animated background for depth -->
+<div class="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+<div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary-container/20 blur-[120px]"></div>
+<div class="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] rounded-full bg-secondary-container/20 blur-[100px]"></div>
+</div>
+<!-- Login Container -->
+<main class="w-full max-w-[960px] bg-surface-container-lowest rounded-[32px] shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[600px] border border-outline-variant/30">
+<!-- Left Side: Login Form -->
+<div class="flex-1 p-lg md:p-xl flex flex-col justify-center">
+<!-- Brand Logo -->
+<div class="mb-lg flex items-center gap-sm">
+<div class="w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-container" style="font-variation-settings: 'FILL' 1">hub</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md text-primary leading-none">Gateway Pro</h1>
+<p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest mt-1">Communication Hub</p>
+</div>
+</div>
+<div class="mb-lg">
+<h2 class="font-headline-lg text-headline-lg text-on-surface mb-xs">Welcome back</h2>
+<p class="text-on-surface-variant font-body-md">Log in to manage your high-volume WhatsApp communication.</p>
+</div>
+<form action="#" class="space-y-md" method="POST">
+<!-- Username/Email Field -->
+<div class="space-y-xs">
+<label class="font-label-md text-label-md text-on-surface-variant px-1" for="login-id">Email or Username</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors">person</span>
+<input class="w-full pl-12 pr-4 py-3.5 bg-surface-container-low border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-body-md" id="login-id" name="login-id" placeholder="Enter your credentials" required="" type="text"/>
+</div>
+</div>
+<!-- Password Field -->
+<div class="space-y-xs">
+<label class="font-label-md text-label-md text-on-surface-variant px-1" for="password">Password</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors">lock</span>
+<input class="w-full pl-12 pr-4 py-3.5 bg-surface-container-low border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-body-md" id="password" name="password" placeholder="••••••••" required="" type="password"/>
+<button class="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-primary transition-colors" id="toggle-password" type="button">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</div>
+</div>
+<!-- Remember & Forgot -->
+<div class="flex items-center justify-between">
+<label class="flex items-center gap-2 cursor-pointer group">
+<div class="relative flex items-center">
+<input class="peer appearance-none w-5 h-5 border-2 border-outline-variant rounded-md checked:bg-primary checked:border-primary transition-all cursor-pointer" type="checkbox"/>
+<span class="material-symbols-outlined absolute text-white text-[16px] scale-0 peer-checked:scale-100 transition-transform left-[2px] pointer-events-none">check</span>
+</div>
+<span class="font-label-md text-label-md text-on-surface-variant group-hover:text-on-surface">Remember me</span>
+</label>
+<a class="font-label-md text-label-md text-primary font-semibold hover:underline" href="#">Forgot password?</a>
+</div>
+<!-- Submit Button -->
+<button class="w-full py-4 bg-primary text-on-primary font-headline-md text-body-lg rounded-xl hover:bg-primary/90 active:scale-[0.98] transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 mt-4" type="submit">
+<span>Login</span>
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</form>
+<div class="mt-lg pt-md border-t border-outline-variant/30 text-center">
+<p class="font-label-md text-label-md text-on-surface-variant">Don't have an account? <a class="text-primary font-bold hover:underline" href="#">Contact Support</a></p>
+</div>
+</div>
+<!-- Right Side: QR Code Login -->
+<div class="hidden md:flex w-full max-w-[420px] bg-primary/5 p-lg flex-col items-center justify-center text-center relative overflow-hidden">
+<!-- Decorative circle -->
+<div class="absolute -top-20 -right-20 w-64 h-64 bg-primary-container/20 rounded-full blur-3xl"></div>
+<div class="relative z-10 flex flex-col items-center">
+<div class="w-16 h-16 bg-white rounded-full shadow-md flex items-center justify-center mb-md">
+<span class="material-symbols-outlined text-primary text-[32px]">qr_code_scanner</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-sm">Login via QR Code</h3>
+<p class="text-on-surface-variant font-body-md mb-lg px-8">Open WhatsApp on your phone and scan the code to sign in instantly.</p>
+<!-- QR Container -->
+<div class="bg-white p-6 rounded-[24px] shadow-xl border border-outline-variant/20 relative group">
+<div class="absolute inset-0 bg-white/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-[24px] flex items-center justify-center z-20 backdrop-blur-[1px]">
+<button class="bg-primary text-on-primary px-4 py-2 rounded-full font-label-md flex items-center gap-2 shadow-lg">
+<span class="material-symbols-outlined text-[18px]">refresh</span>
+                            Refresh Code
+                         </button>
+</div>
+<div class="w-48 h-48 bg-surface-container-highest rounded-lg flex items-center justify-center overflow-hidden border-4 border-surface-container">
+<!-- Simulated QR Code Image -->
+<div class="w-full h-full p-2 bg-white flex items-center justify-center">
+<div class="grid grid-cols-4 gap-1 w-full h-full opacity-30">
+<div class="bg-on-surface-variant rounded-sm"></div><div class="bg-on-surface-variant rounded-sm"></div><div></div><div class="bg-on-surface-variant rounded-sm"></div>
+<div></div><div class="bg-on-surface-variant rounded-sm"></div><div class="bg-on-surface-variant rounded-sm"></div><div></div>
+<div class="bg-on-surface-variant rounded-sm"></div><div></div><div class="bg-on-surface-variant rounded-sm"></div><div class="bg-on-surface-variant rounded-sm"></div>
+<div class="bg-on-surface-variant rounded-sm"></div><div class="bg-on-surface-variant rounded-sm"></div><div></div><div class="bg-on-surface-variant rounded-sm"></div>
+</div>
+<div class="absolute inset-0 flex items-center justify-center">
+<img class="w-40 h-40 object-contain" data-alt="A clean, high-resolution QR code rendered in a minimalist graphic style with deep forest green squares on a pure white background, framed by a soft glowing border. The image has a modern, technical aesthetic suitable for a high-end SaaS dashboard login screen." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDGsJDMcPlRYTUC5Pj3eafie2IZ4kx14rY0_XdA5f_B-ZSKonJB0OaY--xWheXHU9pewK9rcvXxmkVDxlttG0jtyMLOEz7g0WXCu9oIHp7zXZFuyzHNhU9VO9qavYOa2nKz-c8usENlEcsCKgC62t3FnjsbDkpIe_DhoL-WfUHZa1QCO-OB0nkB0s4Q6vvTqCs5D86jiivhFQwVNleO1Dp4zogfoBdas0eNxTDbk21yogD_txCA1EhK"/>
+</div>
+</div>
+</div>
+<!-- Steps -->
+<div class="mt-6 space-y-3 text-left">
+<div class="flex items-start gap-3">
+<div class="w-5 h-5 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+<span class="text-[12px] font-bold text-primary">1</span>
+</div>
+<span class="text-xs text-on-surface-variant leading-tight">Open <b>WhatsApp</b> on your phone</span>
+</div>
+<div class="flex items-start gap-3">
+<div class="w-5 h-5 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+<span class="text-[12px] font-bold text-primary">2</span>
+</div>
+<span class="text-xs text-on-surface-variant leading-tight">Tap <b>Menu</b> or <b>Settings</b> and select <b>Linked Devices</b></span>
+</div>
+<div class="flex items-start gap-3">
+<div class="w-5 h-5 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+<span class="text-[12px] font-bold text-primary">3</span>
+</div>
+<span class="text-xs text-on-surface-variant leading-tight">Point your phone to this screen to capture the code</span>
+</div>
+</div>
+</div>
+<div class="mt-lg">
+<p class="font-label-md text-label-md text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-primary" style="font-variation-settings: 'FILL' 1">verified_user</span>
+                        Secure end-to-end encrypted login
+                    </p>
+</div>
+</div>
+<!-- Bottom brand pattern -->
+<div class="absolute bottom-0 left-0 w-full h-1 bg-primary"></div>
+</div>
+</main>
+<!-- Footer Links -->
+<footer class="fixed bottom-6 left-0 w-full text-center">
+<nav class="flex justify-center gap-md text-on-surface-variant font-label-md">
+<a class="hover:text-primary transition-colors" href="#">Privacy Policy</a>
+<a class="hover:text-primary transition-colors" href="#">Terms of Service</a>
+<a class="hover:text-primary transition-colors" href="#">System Status</a>
+<a class="hover:text-primary transition-colors" href="#">Help Center</a>
+</nav>
+<p class="mt-2 text-[10px] text-outline-variant uppercase tracking-widest">© 2024 Gateway Pro. All rights reserved.</p>
+</footer>
+<script>
+        // Password visibility toggle
+        const toggleBtn = document.getElementById('toggle-password');
+        const passwordInput = document.getElementById('password');
+        
+        toggleBtn.addEventListener('click', () => {
+            const isPassword = passwordInput.type === 'password';
+            passwordInput.type = isPassword ? 'text' : 'password';
+            toggleBtn.querySelector('span').textContent = isPassword ? 'visibility_off' : 'visibility';
+        });
+
+        // Simple subtle entrance animation
+        window.addEventListener('DOMContentLoaded', () => {
+            const main = document.querySelector('main');
+            main.style.opacity = '0';
+            main.style.transform = 'translateY(20px)';
+            main.style.transition = 'opacity 0.6s ease-out, transform 0.6s ease-out';
+            
+            setTimeout(() => {
+                main.style.opacity = '1';
+                main.style.transform = 'translateY(0)';
+            }, 100);
+        });
+    </script>
+</body></html>

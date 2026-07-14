@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+/backend/node_modules/
+/gateway/node_modules/
+/frontend/node_modules/
+
+# Compiled outputs
+dist/
+/backend/dist/
+/gateway/dist/
+/frontend/dist/
+
+# Environment variables & secrets
+.env
+.env*.local
+*.env
+/backend/.env
+/gateway/.env
+
+# Local WhatsApp authentication store
+.wwebjs_auth/
+/gateway/.wwebjs_auth/
+.wwebjs_cache/
+/gateway/.wwebjs_cache/
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,217 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  admin
+  operator
+  viewer
+}
+
+enum DeviceStatus {
+  connecting
+  connected
+  disconnected
+  banned
+}
+
+enum MessageDirection {
+  inbound
+  outbound
+}
+
+enum MessageStatus {
+  queued
+  sent
+  delivered
+  read
+  failed
+}
+
+enum BroadcastStatus {
+  draft
+  scheduled
+  running
+  paused
+  completed
+  failed
+}
+
+model User {
+  id            String     @id @default(uuid()) @db.Uuid
+  name          String
+  email         String     @unique
+  passwordHash  String     @map("password_hash")
+  role          Role       @default(operator)
+  isActive      Boolean    @default(true) @map("is_active")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  devices       Device[]
+  apiKeys       ApiKey[]
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+model Device {
+  id              String       @id @default(uuid()) @db.Uuid
+  userId          String       @db.Uuid @map("user_id")
+  label           String
+  phoneNumber     String?      @map("phone_number")
+  status          DeviceStatus @default(disconnected)
+  sessionData     String?      @db.Text @map("session_data")
+  lastConnectedAt DateTime?    @map("last_connected_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages        Message[]
+  broadcasts      Broadcast[]
+
+  @@map("devices")
+}
+
+model Contact {
+  id          String               @id @default(uuid()) @db.Uuid
+  name        String
+  phoneNumber String               @unique @map("phone_number")
+  tags        Json?                // Array of string tags
+  notes       String?              @db.Text
+  optedOut    Boolean              @default(false) @map("opted_out")
+  createdAt   DateTime             @default(now()) @map("created_at")
+  memberships ContactGroupMember[]
+  messages    Message[]
+
+  @@map("contacts")
+}
+
+model ContactGroup {
+  id          String               @id @default(uuid()) @db.Uuid
+  name        String
+  description String?              @db.Text
+  createdAt   DateTime             @default(now()) @map("created_at")
+  members     ContactGroupMember[]
+
+  @@map("contact_groups")
+}
+
+model ContactGroupMember {
+  id        String       @id @default(uuid()) @db.Uuid
+  contactId String       @db.Uuid @map("contact_id")
+  groupId   String       @db.Uuid @map("group_id")
+  contact   Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  group     ContactGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([contactId, groupId])
+  @@map("contact_group_members")
+}
+
+model Template {
+  id         String      @id @default(uuid()) @db.Uuid
+  name       String
+  content    String      @db.Text
+  mediaUrl   String?     @map("media_url")
+  mediaType  String      @default("none") @map("media_type") // none, image, document, video
+  createdAt  DateTime    @default(now()) @map("created_at")
+  broadcasts Broadcast[]
+
+  @@map("templates")
+}
+
+model Broadcast {
+  id               String          @id @default(uuid()) @db.Uuid
+  templateId       String?         @db.Uuid @map("template_id")
+  deviceId         String          @db.Uuid @map("device_id")
+  createdBy        String          @db.Uuid @map("created_by")
+  name             String
+  status           BroadcastStatus @default(draft)
+  scheduledAt      DateTime?       @map("scheduled_at")
+  delayMinSeconds  Int             @default(5) @map("delay_min_seconds")
+  delayMaxSeconds  Int             @default(15) @map("delay_max_seconds")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  template         Template?       @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  device           Device          @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  messages         Message[]
+  targets          BroadcastTarget[]
+
+  @@map("broadcasts")
+}
+
+model BroadcastTarget {
+  id          String        @id @default(uuid()) @db.Uuid
+  broadcastId String        @db.Uuid @map("broadcast_id")
+  contactId   String        @db.Uuid @map("contact_id")
+  status      MessageStatus @default(queued)
+  sentAt      DateTime?     @map("sent_at")
+  broadcast   Broadcast     @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+
+  @@map("broadcast_targets")
+}
+
+model Message {
+  id           String           @id @default(uuid()) @db.Uuid
+  deviceId     String           @db.Uuid @map("device_id")
+  contactId    String           @db.Uuid @map("contact_id")
+  broadcastId  String?          @db.Uuid @map("broadcast_id")
+  direction    MessageDirection
+  content      String           @db.Text
+  mediaUrl     String?          @map("media_url")
+  status       MessageStatus    @default(queued)
+  failedReason String?          @db.Text @map("failed_reason")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  device       Device           @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  contact      Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  broadcast    Broadcast?       @relation(fields: [broadcastId], references: [id], onDelete: SetNull)
+
+  @@map("messages")
+}
+
+model ApiKey {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid @map("user_id")
+  keyHash    String    @unique @map("key_hash")
+  plainKey   String?   @map("plain_key")
+  label      String
+  isActive   Boolean   @default(true) @map("is_active")
+  lastUsedAt DateTime? @map("last_used_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("api_keys")
+}
+
+model Webhook {
+  id         String       @id @default(uuid()) @db.Uuid
+  url        String
+  eventTypes Json         @map("event_types") // e.g. ["message.in", "message.status", "device.status"]
+  isActive   Boolean      @default(true) @map("is_active")
+  createdAt  DateTime     @default(now()) @map("created_at")
+  logs       WebhookLog[]
+
+  @@map("webhooks")
+}
+
+model WebhookLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  webhookId    String   @db.Uuid @map("webhook_id")
+  eventType    String   @map("event_type")
+  responseCode Int?     @map("response_code")
+  payload      String   @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  webhook      Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@map("webhook_logs")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid @map("user_id")
+  action    String
+  detail    String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("audit_logs")
+}

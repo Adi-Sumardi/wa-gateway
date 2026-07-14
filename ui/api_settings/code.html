@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Gateway Pro | API &amp; Integration Settings</title>
+<!-- Google Fonts: Plus Jakarta Sans & Inter -->
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "outline-variant": "#bbcbb9",
+                    "on-secondary-fixed-variant": "#005047",
+                    "secondary-fixed": "#a8f0e3",
+                    "tertiary": "#006b5f",
+                    "background": "#f7f9fc",
+                    "primary-fixed-dim": "#3de273",
+                    "surface-container-highest": "#e0e3e6",
+                    "primary": "#006d2f",
+                    "on-surface-variant": "#3c4a3d",
+                    "on-tertiary-fixed-variant": "#005047",
+                    "on-background": "#191c1e",
+                    "tertiary-container": "#63c9b9",
+                    "on-error": "#ffffff",
+                    "on-primary-container": "#005523",
+                    "inverse-primary": "#3de273",
+                    "on-secondary-fixed": "#00201c",
+                    "primary-container": "#25d366",
+                    "surface-variant": "#e0e3e6",
+                    "surface-container-lowest": "#ffffff",
+                    "outline": "#6c7b6b",
+                    "surface-container-low": "#f2f4f7",
+                    "on-primary": "#ffffff",
+                    "secondary-container": "#a5ede0",
+                    "surface-dim": "#d8dadd",
+                    "on-tertiary-fixed": "#00201c",
+                    "error-container": "#ffdad6",
+                    "inverse-surface": "#2d3133",
+                    "on-primary-fixed": "#002109",
+                    "inverse-on-surface": "#eff1f4",
+                    "on-secondary": "#ffffff",
+                    "surface-container-high": "#e6e8eb",
+                    "on-tertiary": "#ffffff",
+                    "primary-fixed": "#66ff8e",
+                    "surface-bright": "#f7f9fc",
+                    "on-tertiary-container": "#005249",
+                    "surface-tint": "#006d2f",
+                    "on-error-container": "#93000a",
+                    "secondary-fixed-dim": "#8cd4c7",
+                    "secondary": "#1c695f",
+                    "surface": "#f7f9fc",
+                    "on-secondary-container": "#226e63",
+                    "on-primary-fixed-variant": "#005322",
+                    "tertiary-fixed": "#8ff4e3",
+                    "tertiary-fixed-dim": "#72d8c8",
+                    "on-surface": "#191c1e",
+                    "surface-container": "#eceef1",
+                    "error": "#ba1a1a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "md": "24px",
+                    "container-max": "1440px",
+                    "lg": "40px",
+                    "sm": "12px",
+                    "base": "8px",
+                    "xl": "64px",
+                    "xs": "4px",
+                    "sidebar-width": "280px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Plus Jakarta Sans"],
+                    "label-md": ["Inter"],
+                    "title-lg": ["Plus Jakarta Sans"],
+                    "display-lg": ["Plus Jakarta Sans"],
+                    "headline-md": ["Plus Jakarta Sans"],
+                    "body-md": ["Inter"],
+                    "code-sm": ["Inter"],
+                    "headline-lg-mobile": ["Plus Jakarta Sans"],
+                    "body-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "500"}],
+                    "title-lg": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "display-lg": ["48px", {"lineHeight": "60px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "code-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fc; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .sidebar-active { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .glass-panel { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(209, 215, 219, 0.3); }
+        .bento-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px; }
+        pre { font-family: 'Inter', monospace; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d1d7db; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-background text-on-background selection:bg-primary-container">
+<!-- Sidebar Navigation -->
+<aside class="fixed left-0 top-0 h-full w-sidebar-width flex flex-col py-md border-r border-outline-variant bg-surface-container-low z-50">
+<div class="px-md mb-xl flex items-center gap-sm">
+<div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">hub</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">Gateway Pro</h1>
+<p class="font-label-md text-label-md text-on-surface-variant">Communication Hub</p>
+</div>
+</div>
+<nav class="flex-1 px-sm space-y-1">
+<a class="flex items-center gap-sm px-md py-sm text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Overview</span>
+</a>
+<a class="flex items-center gap-sm px-md py-sm text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">devices</span>
+<span class="font-label-md text-label-md">Devices</span>
+</a>
+<a class="flex items-center gap-sm px-md py-sm text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors duration-200 rounded-xl" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-label-md text-label-md">Messages</span>
+</a>
+<a class="flex items-center gap-sm px-md py-sm bg-primary-container text-on-primary-container rounded-xl font-bold sidebar-active active:scale-95" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">settings_suggest</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</nav>
+<div class="px-md mb-md">
+<button class="w-full bg-primary hover:bg-opacity-90 text-white font-bold py-sm px-md rounded-xl transition-all shadow-md active:scale-98 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">add_circle</span>
+<span class="font-label-md text-label-md">Connect New Device</span>
+</button>
+</div>
+<div class="mt-auto px-sm pt-md border-t border-outline-variant">
+<a class="flex items-center gap-sm px-md py-sm text-on-surface-variant hover:text-primary transition-colors rounded-xl" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-label-md text-label-md">Documentation</span>
+</a>
+<a class="flex items-center gap-sm px-md py-sm text-on-surface-variant hover:text-primary transition-colors rounded-xl" href="#">
+<span class="material-symbols-outlined">help_outline</span>
+<span class="font-label-md text-label-md">Support</span>
+</a>
+</div>
+</aside>
+<!-- Top Bar -->
+<header class="fixed top-0 right-0 left-sidebar-width h-16 flex justify-between items-center px-md z-40 bg-surface border-b border-outline-variant">
+<div class="flex items-center gap-md">
+<nav class="flex gap-md">
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-on-surface" href="#">Status</a>
+<a class="font-label-md text-label-md text-primary border-b-2 border-primary font-bold" href="#">API Docs</a>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<button class="bg-secondary-container text-on-secondary-container px-md py-2 rounded-full font-bold font-label-md text-label-md hover:opacity-90 transition-all active:scale-95">
+                Upgrade Plan
+            </button>
+<div class="flex items-center gap-sm">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-all">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A professional close-up headshot of a software developer with a friendly expression, set against a blurred modern office background with soft natural lighting. The style is crisp, high-resolution, and corporate minimalist, with subtle cool-toned color grading that matches the Gateway Pro green and grey UI palette." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB7dUZ2mr7q5ZZmpswDX4UWbPqZXkSgKvhWEca3YP4eNZ6PNccAIeFMcxYkpcquzfVT_x8Xdt8dcsAZD9E3B2JVZAMuLFySQhwsnc8ktbVPrewBj7IRMb6cAS6WhBk1mdSViReZZAWt_M0zEFAgabv-I0Ja5LxRmhOZuX0GlrdMIge1SSZy3q2iyR79LN2IzuqxsLhRnZBgiudfzb5HvpC08oDNI8fooiBgCGoVs6RReqfXafx6122F"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-16 ml-sidebar-width min-h-screen">
+<div class="max-w-container-max mx-auto p-md lg:p-xl">
+<!-- Page Header -->
+<div class="mb-xl">
+<h2 class="font-headline-lg text-headline-lg text-on-background mb-xs">API &amp; Integration Settings</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Manage your gateway credentials and configure outgoing webhooks for real-time data sync.</p>
+</div>
+<!-- Bento Grid Layout -->
+<div class="bento-grid">
+<!-- API Key Card (Column Span 8) -->
+<div class="col-span-12 lg:col-span-8 bg-surface-container-lowest rounded-xl p-md border border-outline-variant shadow-sm flex flex-col gap-md">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-title-lg text-title-lg text-on-surface mb-1">API Key Management</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Use this key to authenticate your requests to the Gateway API.</p>
+</div>
+<div class="px-3 py-1 bg-primary-container text-on-primary-container rounded-full font-bold text-[10px] uppercase tracking-wider">
+                            Active
+                        </div>
+</div>
+<div class="flex items-center gap-sm bg-surface-container-low p-md rounded-xl border border-outline-variant relative group">
+<code class="flex-1 font-code-sm text-code-sm text-on-surface select-all overflow-hidden whitespace-nowrap" id="apiKey">
+                            ************************************************
+                        </code>
+<div class="flex items-center gap-2">
+<button class="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded-lg transition-all" onclick="toggleKey()" title="Toggle visibility">
+<span class="material-symbols-outlined" id="toggleIcon">visibility</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded-lg transition-all" onclick="copyKey()" title="Copy to clipboard">
+<span class="material-symbols-outlined">content_copy</span>
+</button>
+</div>
+</div>
+<div class="flex gap-md items-center mt-auto">
+<button class="px-md py-sm bg-primary text-white font-bold rounded-xl text-label-md hover:bg-opacity-90 active:scale-95 transition-all">
+                            Regenerate Key
+                        </button>
+<p class="font-label-md text-label-md text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">info</span>
+                            Last rotated 14 days ago.
+                        </p>
+</div>
+</div>
+<!-- Profile/Plan Summary (Column Span 4) -->
+<div class="col-span-12 lg:col-span-4 bg-primary text-on-primary rounded-xl p-md border border-primary shadow-lg flex flex-col justify-between">
+<div>
+<div class="flex items-center gap-sm mb-md">
+<div class="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-md">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">account_circle</span>
+</div>
+<div>
+<h4 class="font-title-lg text-title-lg leading-tight">Elite Enterprise</h4>
+<p class="text-white/70 font-label-md">gateway_admin_88</p>
+</div>
+</div>
+<div class="space-y-4">
+<div class="flex justify-between items-center text-sm border-b border-white/10 pb-2">
+<span class="text-white/60">Messages this month</span>
+<span class="font-bold">124,042 / 500k</span>
+</div>
+<div class="flex justify-between items-center text-sm border-b border-white/10 pb-2">
+<span class="text-white/60">Active Devices</span>
+<span class="font-bold">12 / 20</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span class="text-white/60">Renewal Date</span>
+<span class="font-bold">Oct 24, 2024</span>
+</div>
+</div>
+</div>
+<button class="mt-xl w-full bg-white text-primary font-bold py-sm rounded-xl hover:bg-white/90 transition-all active:scale-95">
+                        Manage Billing
+                    </button>
+</div>
+<!-- Webhook Configuration (Column Span 12) -->
+<div class="col-span-12 bg-surface-container-lowest rounded-xl p-md border border-outline-variant shadow-sm">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-md mb-md">
+<div>
+<h3 class="font-title-lg text-title-lg text-on-surface">Webhook Configuration</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Receive POST requests when a message is sent or received.</p>
+</div>
+<div class="flex items-center gap-sm">
+<span class="font-label-md text-label-md text-on-surface-variant">Webhooks enabled</span>
+<button class="w-12 h-6 bg-primary rounded-full relative transition-colors duration-200" id="webhookToggle">
+<div class="absolute top-1 left-7 w-4 h-4 bg-white rounded-full transition-all duration-200" id="toggleCircle"></div>
+</button>
+</div>
+</div>
+<div class="flex flex-col md:flex-row gap-sm items-end">
+<div class="flex-1 w-full">
+<label class="block font-label-md text-label-md text-on-surface-variant mb-2">Endpoint URL</label>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-xl px-md py-sm font-body-md focus:ring-primary focus:border-primary transition-all" type="url" value="https://api.yourdomain.com/webhooks/whatsapp"/>
+</div>
+<button class="px-md py-sm bg-surface-container-high border border-outline-variant text-on-surface font-bold rounded-xl text-label-md hover:bg-opacity-90 active:scale-95 transition-all whitespace-nowrap flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">bolt</span>
+                            Test Webhook
+                        </button>
+<button class="px-md py-sm bg-primary text-white font-bold rounded-xl text-label-md hover:bg-opacity-90 active:scale-95 transition-all whitespace-nowrap">
+                            Save Changes
+                        </button>
+</div>
+</div>
+<!-- Code Snippet & Docs (Split 6/6) -->
+<div class="col-span-12 lg:col-span-6 bg-surface-container-lowest rounded-xl p-md border border-outline-variant shadow-sm">
+<div class="flex items-center justify-between mb-md">
+<h3 class="font-title-lg text-title-lg text-on-surface">Quick Start Snippet</h3>
+<div class="flex bg-surface-container-high rounded-lg p-1">
+<button class="px-3 py-1 text-xs font-bold bg-white text-primary rounded-md shadow-sm">Node.js</button>
+<button class="px-3 py-1 text-xs font-bold text-on-surface-variant hover:text-on-surface">Python</button>
+<button class="px-3 py-1 text-xs font-bold text-on-surface-variant hover:text-on-surface">PHP</button>
+</div>
+</div>
+<div class="bg-[#1e1e1e] rounded-xl p-md overflow-hidden relative group">
+<pre class="text-white font-code-sm text-code-sm leading-relaxed overflow-x-auto"><span class="text-pink-400">const</span> axios = <span class="text-yellow-300">require</span>(<span class="text-green-300">'axios'</span>);
+
+<span class="text-pink-400">const</span> sendMessage = <span class="text-pink-400">async</span> () =&gt; {
+  <span class="text-pink-400">const</span> response = <span class="text-pink-400">await</span> axios.<span class="text-yellow-300">post</span>(<span class="text-green-300">'https://api.gwpro.io/v1/send'</span>, {
+    <span class="text-blue-300">"to"</span>: <span class="text-green-300">"1234567890"</span>,
+    <span class="text-blue-300">"message"</span>: <span class="text-green-300">"Hello from Gateway Pro API!"</span>
+  }, {
+    <span class="text-blue-300">"headers"</span>: { <span class="text-blue-300">"X-API-KEY"</span>: <span class="text-green-300">"your_api_key"</span> }
+  });
+  <span class="text-pink-400">return</span> response.data;
+};</pre>
+<button class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity p-2 bg-white/10 text-white rounded-lg hover:bg-white/20">
+<span class="material-symbols-outlined text-[20px]">content_copy</span>
+</button>
+</div>
+</div>
+<div class="col-span-12 lg:col-span-6 bg-surface-container-lowest rounded-xl p-md border border-outline-variant shadow-sm flex flex-col">
+<h3 class="font-title-lg text-title-lg text-on-surface mb-md">Integration Resources</h3>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-sm flex-1">
+<a class="p-md bg-surface-container-low rounded-xl border border-outline-variant hover:border-primary transition-all group" href="#">
+<span class="material-symbols-outlined text-primary mb-2 text-3xl">menu_book</span>
+<h4 class="font-bold text-on-surface mb-1">API Reference</h4>
+<p class="text-xs text-on-surface-variant">Complete documentation of all available endpoints and parameters.</p>
+</a>
+<a class="p-md bg-surface-container-low rounded-xl border border-outline-variant hover:border-primary transition-all group" href="#">
+<span class="material-symbols-outlined text-primary mb-2 text-3xl">terminal</span>
+<h4 class="font-bold text-on-surface mb-1">SDK Libraries</h4>
+<p class="text-xs text-on-surface-variant">Official SDKs for Node.js, Python, and Ruby integration.</p>
+</a>
+<a class="p-md bg-surface-container-low rounded-xl border border-outline-variant hover:border-primary transition-all group" href="#">
+<span class="material-symbols-outlined text-primary mb-2 text-3xl">forum</span>
+<h4 class="font-bold text-on-surface mb-1">Developer Community</h4>
+<p class="text-xs text-on-surface-variant">Join our Discord to chat with other developers and our engineering team.</p>
+</a>
+<a class="p-md bg-surface-container-low rounded-xl border border-outline-variant hover:border-primary transition-all group" href="#">
+<span class="material-symbols-outlined text-primary mb-2 text-3xl">error_outline</span>
+<h4 class="font-bold text-on-surface mb-1">Error Codes</h4>
+<p class="text-xs text-on-surface-variant">Common integration issues and how to resolve them quickly.</p>
+</a>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+        let isKeyVisible = false;
+        const rawKey = "gw_live_a7b8c9d1e2f3g4h5i6j7k8l9m0n1o2p3q4r5";
+        const maskedKey = "************************************************";
+
+        function toggleKey() {
+            const keyEl = document.getElementById('apiKey');
+            const iconEl = document.getElementById('toggleIcon');
+            isKeyVisible = !isKeyVisible;
+            keyEl.innerText = isKeyVisible ? rawKey : maskedKey;
+            iconEl.innerText = isKeyVisible ? 'visibility_off' : 'visibility';
+        }
+
+        function copyKey() {
+            navigator.clipboard.writeText(rawKey).then(() => {
+                const toast = document.createElement('div');
+                toast.className = 'fixed bottom-8 right-8 bg-inverse-surface text-inverse-on-surface px-md py-sm rounded-xl shadow-xl z-[100] animate-bounce';
+                toast.innerText = 'API Key copied to clipboard';
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 2000);
+            });
+        }
+
+        const webhookToggle = document.getElementById('webhookToggle');
+        const toggleCircle = document.getElementById('toggleCircle');
+        let webhookEnabled = true;
+
+        webhookToggle.addEventListener('click', () => {
+            webhookEnabled = !webhookEnabled;
+            if(webhookEnabled) {
+                webhookToggle.classList.replace('bg-outline', 'bg-primary');
+                toggleCircle.classList.replace('left-1', 'left-7');
+            } else {
+                webhookToggle.classList.replace('bg-primary', 'bg-outline');
+                toggleCircle.classList.replace('left-7', 'left-1');
+            }
+        });
+    </script>
+</body></html>

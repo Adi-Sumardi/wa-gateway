@@ -1,0 +1,22 @@
+{
+  "name": "sendago-gateway",
+  "version": "1.0.0",
+  "description": "SendaGo WhatsApp Gateway Engine",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "nodemon src/index.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "socket.io-client": "^4.7.5",
+    "whatsapp-web.js": "github:pedroslopez/whatsapp-web.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "nodemon": "^3.1.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}

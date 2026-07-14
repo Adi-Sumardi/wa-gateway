@@ -1,0 +1,134 @@
+erDiagram
+    USERS ||--o{ DEVICES : "mengelola"
+    USERS ||--o{ API_KEYS : "memiliki"
+    USERS ||--o{ AUDIT_LOGS : "melakukan"
+    USERS {
+        uuid id PK
+        string name
+        string email UK
+        string password_hash
+        enum role "admin|operator|viewer"
+        boolean is_active
+        datetime created_at
+    }
+
+    DEVICES ||--o{ MESSAGES : "mengirim/menerima"
+    DEVICES ||--o{ BROADCASTS : "digunakan_oleh"
+    DEVICES {
+        uuid id PK
+        uuid user_id FK
+        string label
+        string phone_number
+        enum status "connecting|connected|disconnected|banned"
+        text session_data
+        datetime last_connected_at
+        datetime created_at
+    }
+
+    CONTACTS ||--o{ CONTACT_GROUP_MEMBERS : "masuk_ke"
+    CONTACTS ||--o{ MESSAGES : "penerima/pengirim"
+    CONTACTS {
+        uuid id PK
+        string name
+        string phone_number UK
+        json tags
+        text notes
+        boolean opted_out
+        datetime created_at
+    }
+
+    CONTACT_GROUPS ||--o{ CONTACT_GROUP_MEMBERS : "berisi"
+    CONTACT_GROUPS {
+        uuid id PK
+        string name
+        text description
+        datetime created_at
+    }
+
+    CONTACT_GROUP_MEMBERS {
+        uuid id PK
+        uuid contact_id FK
+        uuid group_id FK
+    }
+
+    TEMPLATES ||--o{ BROADCASTS : "dipakai_di"
+    TEMPLATES {
+        uuid id PK
+        string name
+        text content
+        string media_url
+        enum media_type "none|image|document|video"
+        datetime created_at
+    }
+
+    BROADCASTS ||--o{ MESSAGES : "menghasilkan"
+    BROADCASTS ||--o{ BROADCAST_TARGETS : "menyasar"
+    BROADCASTS {
+        uuid id PK
+        uuid template_id FK
+        uuid device_id FK
+        uuid created_by FK
+        string name
+        enum status "draft|scheduled|running|paused|completed|failed"
+        datetime scheduled_at
+        int delay_min_seconds
+        int delay_max_seconds
+        datetime created_at
+    }
+
+    BROADCAST_TARGETS {
+        uuid id PK
+        uuid broadcast_id FK
+        uuid contact_id FK
+        enum status "queued|sent|delivered|read|failed"
+        datetime sent_at
+    }
+
+    MESSAGES {
+        uuid id PK
+        uuid device_id FK
+        uuid contact_id FK
+        uuid broadcast_id FK "nullable, null jika chat personal"
+        enum direction "inbound|outbound"
+        text content
+        string media_url
+        enum status "queued|sent|delivered|read|failed"
+        text failed_reason
+        datetime created_at
+    }
+
+    API_KEYS {
+        uuid id PK
+        uuid user_id FK
+        string key_hash
+        string label
+        boolean is_active
+        datetime last_used_at
+        datetime created_at
+    }
+
+    WEBHOOKS ||--o{ WEBHOOK_LOGS : "mencatat"
+    WEBHOOKS {
+        uuid id PK
+        string url
+        json event_types "message.in|message.status|device.status"
+        boolean is_active
+        datetime created_at
+    }
+
+    WEBHOOK_LOGS {
+        uuid id PK
+        uuid webhook_id FK
+        string event_type
+        int response_code
+        text payload
+        datetime created_at
+    }
+
+    AUDIT_LOGS {
+        uuid id PK
+        uuid user_id FK
+        string action
+        text detail
+        datetime created_at
+    }

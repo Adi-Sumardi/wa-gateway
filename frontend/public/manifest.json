@@ -1,0 +1,21 @@
+{
+  "short_name": "SendaGo",
+  "name": "SendaGo WhatsApp Gateway Pro",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#f7f9fc",
+  "theme_color": "#006d2f",
+  "display": "standalone",
+  "orientation": "portrait"
+}
