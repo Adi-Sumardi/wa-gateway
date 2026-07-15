@@ -78,19 +78,26 @@ const startQueueWorker = (deviceId: string) => {
       try {
         console.log(`[Gateway] [Queue] Sending message to ${nextMsg.to} on device ${deviceId}. Queue size: ${queue.length}`);
 
-        // Diagnose whether the recipient WID actually resolves before attempting
-        // to send, so a "chat not found" failure can be told apart from a
-        // registration problem instead of always reporting the same generic error.
-        const rawNumber = nextMsg.to.replace(/@c\.us$/, '');
-        const numberId = await client.getNumberId(rawNumber);
-        if (!numberId) {
-          throw new Error(`Number ${rawNumber} is not registered on WhatsApp (getNumberId returned null)`);
+        // A caller (e.g. the AI auto-reply flow) may already hand us a full,
+        // authoritative WID - group chats (@g.us) or the newer @lid privacy
+        // identifier. Those must be used as-is: getNumberId() only resolves
+        // plain phone numbers, and calling it on a group id or a @lid id
+        // (which has no underlying phone number to look up) always fails.
+        // Only bare numbers / classic @c.us ids go through registration lookup.
+        let chatId: string;
+        if (nextMsg.to.endsWith('@lid') || nextMsg.to.endsWith('@g.us')) {
+          chatId = nextMsg.to;
+        } else {
+          const rawNumber = nextMsg.to.replace(/@c\.us$/, '');
+          const numberId = await client.getNumberId(rawNumber);
+          if (!numberId) {
+            throw new Error(`Number ${rawNumber} is not registered on WhatsApp (getNumberId returned null)`);
+          }
+          console.log(`[Gateway] [Queue] Resolved ${rawNumber} -> ${numberId._serialized}`);
+          // Use the resolved WID (handles the newer @lid privacy identifier
+          // format, not just @c.us) as the actual send target.
+          chatId = numberId._serialized;
         }
-        console.log(`[Gateway] [Queue] Resolved ${rawNumber} -> ${numberId._serialized}`);
-
-        // Use the resolved WID (handles the newer @lid privacy identifier
-        // format, not just @c.us) as the actual send target.
-        const chatId = numberId._serialized;
 
         let sentMsg;
         if (nextMsg.mediaUrl) {
@@ -254,7 +261,13 @@ socket.on('init-device', async (data: { deviceId: string }) => {
       console.log(`[Gateway] Device ${deviceId} received message from ${msg.from}`);
       socket.emit('incoming-message', {
         deviceId,
+        // Bare number for display/contact matching. Only strips @c.us - WIDs
+        // using the newer @lid privacy identifier format are left as-is here
+        // since there is no underlying phone number to recover for them.
         from: msg.from.replace('@c.us', ''),
+        // Full WID as WhatsApp reported it (@c.us or @lid) - the only
+        // reliable target for replying to this exact sender.
+        fromWid: msg.from,
         body: msg.body,
       });
     });

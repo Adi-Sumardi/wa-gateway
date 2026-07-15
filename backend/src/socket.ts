@@ -147,9 +147,9 @@ export const initSocket = (server: HTTPServer) => {
       });
 
       // Handle incoming message from gateway
-      socket.on('incoming-message', async (data: { deviceId: string; from: string; body: string }) => {
-        console.log(`[Socket] Incoming message on ${data.deviceId} from ${data.from}: ${data.body.substring(0, 30)}`);
+      socket.on('incoming-message', async (data: { deviceId: string; from: string; fromWid?: string; body: string }) => {
         try {
+          console.log(`[Socket] Incoming message on ${data.deviceId} from ${data.from}: ${(data.body || '').substring(0, 30)}`);
           // Find the device
           const device = await prisma.device.findUnique({
             where: { id: data.deviceId }
@@ -227,7 +227,11 @@ export const initSocket = (server: HTTPServer) => {
                 sendWhatsappMessage({
                   messageId: outMsg.id,
                   deviceId: device.id,
-                  to: data.from + '@c.us',
+                  // Reply to the exact WID WhatsApp reported for the sender
+                  // (handles the newer @lid privacy identifier, not just
+                  // classic phone-based @c.us ids). Fall back for older
+                  // gateway builds that don't send fromWid yet.
+                  to: data.fromWid || (data.from + '@c.us'),
                   body: aiReply,
                 });
               } catch (aiErr) {
