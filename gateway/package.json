@@ -11,7 +11,7 @@
   "dependencies": {
     "dotenv": "^16.4.5",
     "socket.io-client": "^4.7.5",
-    "whatsapp-web.js": "github:pedroslopez/whatsapp-web.js"
+    "whatsapp-web.js": "github:lindionez/whatsapp-web.js#f4ea1e3cf4076e44e36dfe5f81ea57048d2f7761"
   },
   "devDependencies": {
     "@types/node": "^20.12.12",
