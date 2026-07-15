@@ -20,7 +20,10 @@ import {
   AlertCircle,
   Info,
   Check,
-  Menu
+  Menu,
+  Copy,
+  Terminal,
+  BookOpen
 } from 'lucide-react';
 
 const BACKEND_URL = 'http://localhost:5001';
@@ -90,6 +93,7 @@ export default function App() {
 
   // Navigation & Data state
   const [activeTab, setActiveTab] = useState<'overview' | 'devices' | 'messages' | 'settings'>('overview');
+  const [activeDocLanguage, setActiveDocLanguage] = useState<'curl' | 'nodejs' | 'python' | 'php'>('curl');
   const [devices, setDevices] = useState<Device[]>([]);
   const [logs, setLogs] = useState<MessageLog[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
@@ -1074,6 +1078,185 @@ export default function App() {
                   {apiKeys.length === 0 && (
                     <p className="py-4 text-center text-on-surface-variant">No active API keys found.</p>
                   )}
+                </div>
+              </div>
+
+              {/* API Integration Reference */}
+              <div className="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-6 shadow-sm space-y-6">
+                <div className="space-y-1">
+                  <h3 className="font-bold text-base flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-primary" />
+                    API Integration Reference
+                  </h3>
+                  <p className="text-xs text-on-surface-variant">Complete endpoint details and copyable code snippets to quickly integrate SendaGo with your custom CRM or automation flow.</p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left Column: Endpoint Details */}
+                  <div className="space-y-4 text-xs">
+                    <div className="space-y-2">
+                      <h4 className="font-bold text-on-surface uppercase tracking-wider text-[10px]">Endpoint</h4>
+                      <div className="flex items-center gap-2 bg-surface-container-lowest border border-outline-variant/50 p-2.5 rounded-xl">
+                        <span className="bg-primary/20 text-primary font-bold px-2 py-1 rounded text-[10px]">POST</span>
+                        <code className="font-mono break-all text-on-surface font-semibold select-all">{BACKEND_URL}/api/messages</code>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="font-bold text-on-surface uppercase tracking-wider text-[10px]">Authentication Headers</h4>
+                      <div className="bg-surface-container-lowest border border-outline-variant/50 p-3 rounded-xl space-y-2 font-mono text-[11px]">
+                        <div>
+                          <span className="font-bold text-primary">X-API-KEY</span>: <span className="text-on-surface-variant">your_generated_api_token</span>
+                        </div>
+                        <div className="text-[10px] text-on-surface-variant font-sans border-t border-outline-variant/20 pt-1.5 mt-1.5 leading-relaxed">
+                          Alternative: You can also pass the token as a query parameter: <code className="bg-zinc-100 px-1 py-0.5 rounded font-mono">?api_key=your_token</code>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="font-bold text-on-surface uppercase tracking-wider text-[10px]">Body Parameters (JSON)</h4>
+                      <div className="bg-surface-container-lowest border border-outline-variant/50 rounded-xl overflow-hidden">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-zinc-50 border-b border-outline-variant/30 font-bold text-on-surface-variant text-[10px] uppercase">
+                              <th className="p-2.5">Field</th>
+                              <th className="p-2.5">Type</th>
+                              <th className="p-2.5">Description</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-outline-variant/20">
+                            <tr>
+                              <td className="p-2.5 font-mono font-bold text-primary">to</td>
+                              <td className="p-2.5 text-on-surface-variant">string</td>
+                              <td className="p-2.5 text-on-surface-variant">Recipient phone number (e.g. <code className="bg-zinc-100 px-1 py-0.5 rounded">0812345678</code> or <code className="bg-zinc-100 px-1 py-0.5 rounded">62812345678</code>). Autoconverted.</td>
+                            </tr>
+                            <tr>
+                              <td className="p-2.5 font-mono font-bold text-primary">body</td>
+                              <td className="p-2.5 text-on-surface-variant">string</td>
+                              <td className="p-2.5 text-on-surface-variant">The content of the WhatsApp message. Markdown formatting (bold, italic, etc) is supported.</td>
+                            </tr>
+                            <tr>
+                              <td className="p-2.5 font-mono font-bold">deviceId</td>
+                              <td className="p-2.5 text-on-surface-variant">string</td>
+                              <td className="p-2.5 text-on-surface-variant"><em>Optional.</em> Specific Device UUID. If omitted, sends via the first available connected device.</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Code Snippets */}
+                  <div className="space-y-4 flex flex-col font-sans">
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-bold text-on-surface uppercase tracking-wider text-[10px] flex items-center gap-1">
+                        <Terminal className="w-3.5 h-3.5 text-primary" />
+                        Quick Start Snippets
+                      </h4>
+                      <div className="flex bg-surface-container-high rounded-xl p-0.5 border border-outline-variant/30 text-[10px] font-bold">
+                        {(['curl', 'nodejs', 'python', 'php'] as const).map(lang => (
+                          <button
+                            key={lang}
+                            type="button"
+                            onClick={() => setActiveDocLanguage(lang)}
+                            className={`px-3 py-1.5 rounded-lg transition-all capitalize ${
+                              activeDocLanguage === lang 
+                                ? 'bg-primary text-on-primary shadow-sm' 
+                                : 'text-on-surface-variant hover:text-on-surface'
+                            }`}
+                          >
+                            {lang === 'nodejs' ? 'Node.js' : lang}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="bg-zinc-950 text-zinc-100 rounded-xl p-4 font-mono text-[11px] leading-relaxed relative group overflow-x-auto flex-1 flex flex-col min-h-[220px]">
+                      <div className="flex-1 whitespace-pre select-all text-left">
+                        {activeDocLanguage === 'curl' && `curl -X POST "${BACKEND_URL}/api/messages" \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-KEY: your_api_key_here" \\
+  -d '{
+    "to": "081234567890",
+    "body": "Hello from SendaGo WA Gateway!",
+    "deviceId": "OPTIONAL_DEVICE_UUID"
+  }'`}
+
+                        {activeDocLanguage === 'nodejs' && `const axios = require('axios');
+
+axios.post('${BACKEND_URL}/api/messages', {
+  to: '081234567890',
+  body: 'Hello from SendaGo WA Gateway!',
+  deviceId: 'OPTIONAL_DEVICE_UUID'
+}, {
+  headers: {
+    'X-API-KEY': 'your_api_key_here'
+  }
+})
+.then(res => console.log('Success:', res.data))
+.catch(err => console.error('Error:', err.response?.data || err.message));`}
+
+                        {activeDocLanguage === 'python' && `import requests
+
+url = "${BACKEND_URL}/api/messages"
+headers = {
+    "X-API-KEY": "your_api_key_here",
+    "Content-Type": "application/json"
+}
+payload = {
+    "to": "081234567890",
+    "body": "Hello from SendaGo WA Gateway!",
+    "deviceId": "OPTIONAL_DEVICE_UUID"
+}
+
+response = requests.post(url, json=payload, headers=headers)
+print(response.status_code, response.json())`}
+
+                        {activeDocLanguage === 'php' && `<?php
+$ch = curl_init('${BACKEND_URL}/api/messages');
+$payload = json_encode([
+    "to" => "081234567890",
+    "body" => "Hello from SendaGo WA Gateway!",
+    "deviceId" => "OPTIONAL_DEVICE_UUID"
+]);
+
+curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    'Content-Type: application/json',
+    'X-API-KEY: your_api_key_here'
+]);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+$response = curl_exec($ch);
+curl_close($ch);
+
+echo $response;`}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          let text = '';
+                          if (activeDocLanguage === 'curl') {
+                            text = `curl -X POST "${BACKEND_URL}/api/messages" \\\n  -H "Content-Type: application/json" \\\n  -H "X-API-KEY: your_api_key_here" \\\n  -d '{\n    "to": "081234567890",\n    "body": "Hello from SendaGo WA Gateway!",\n    "deviceId": "OPTIONAL_DEVICE_UUID"\n  }'`;
+                          } else if (activeDocLanguage === 'nodejs') {
+                            text = `const axios = require('axios');\n\naxios.post('${BACKEND_URL}/api/messages', {\n  to: '081234567890',\n  body: 'Hello from SendaGo WA Gateway!',\n  deviceId: 'OPTIONAL_DEVICE_UUID'\n}, {\n  headers: {\n    'X-API-KEY': 'your_api_key_here'\n  }\n})\n.then(res => console.log('Success:', res.data))\n.catch(err => console.error('Error:', err.response?.data || err.message));`;
+                          } else if (activeDocLanguage === 'python') {
+                            text = `import requests\n\nurl = "${BACKEND_URL}/api/messages"\nheaders = {\n    "X-API-KEY": "your_api_key_here",\n    "Content-Type": "application/json"\n}\npayload = {\n    "to": "081234567890",\n    "body": "Hello from SendaGo WA Gateway!",\n    "deviceId": "OPTIONAL_DEVICE_UUID"\n}\n\nresponse = requests.post(url, json=payload, headers=headers)\nprint(response.status_code, response.json())`;
+                          } else if (activeDocLanguage === 'php') {
+                            text = `<?php\n$ch = curl_init('${BACKEND_URL}/api/messages');\n$payload = json_encode([\n    "to" => "081234567890",\n    "body" => "Hello from SendaGo WA Gateway!",\n    "deviceId" => "OPTIONAL_DEVICE_UUID"\n]);\n\ncurl_setopt($ch, CURLOPT_POSTFIELDS, $payload);\ncurl_setopt($ch, CURLOPT_HTTPHEADER, [\n    'Content-Type: application/json',\n    'X-API-KEY: your_api_key_here'\n]);\ncurl_setopt($ch, CURLOPT_RETURNTRANSFER, true);\n$response = curl_exec($ch);\ncurl_close($ch);\n\necho $response;`;
+                          }
+                          navigator.clipboard.writeText(text);
+                          addToast('Snippet copied to clipboard!', 'success');
+                        }}
+                        className="absolute top-3 right-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white p-2 rounded-lg transition-colors flex items-center gap-1.5"
+                        title="Copy Code"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
