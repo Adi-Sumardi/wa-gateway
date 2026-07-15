@@ -28,7 +28,7 @@ const messageMap = new Map<string, string>();
 // Map to hold outbound message queues per device ID
 const deviceQueues = new Map<string, { messageId: string; to: string; body: string; mediaUrl?: string; attempts?: number }[]>();
 
-const MAX_SEND_ATTEMPTS = 3;
+const MAX_SEND_ATTEMPTS = 8;
 
 // Set to track which devices have an active queue worker loop
 const activeWorkers = new Set<string>();
@@ -77,7 +77,17 @@ const startQueueWorker = (deviceId: string) => {
     if (nextMsg) {
       try {
         console.log(`[Gateway] [Queue] Sending message to ${nextMsg.to} on device ${deviceId}. Queue size: ${queue.length}`);
-        
+
+        // Diagnose whether the recipient WID actually resolves before attempting
+        // to send, so a "chat not found" failure can be told apart from a
+        // registration problem instead of always reporting the same generic error.
+        const rawNumber = nextMsg.to.replace(/@c\.us$/, '');
+        const numberId = await client.getNumberId(rawNumber);
+        if (!numberId) {
+          throw new Error(`Number ${rawNumber} is not registered on WhatsApp (getNumberId returned null)`);
+        }
+        console.log(`[Gateway] [Queue] Resolved ${rawNumber} -> ${numberId._serialized}`);
+
         let sentMsg;
         if (nextMsg.mediaUrl) {
           try {
