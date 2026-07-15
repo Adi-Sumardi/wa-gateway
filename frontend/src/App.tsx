@@ -1,21 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { 
-  LayoutDashboard, 
-  Smartphone, 
-  History, 
-  Settings, 
-  Plus, 
-  Search, 
-  User, 
-  Lock, 
-  Eye, 
-  ArrowRight, 
-  RefreshCw, 
-  QrCode, 
-  Trash2, 
-  Send, 
-  Cloud, 
+import {
+  LayoutDashboard,
+  Smartphone,
+  History,
+  Settings,
+  Plus,
+  Search,
+  User,
+  Lock,
+  Eye,
+  ArrowRight,
+  RefreshCw,
+  QrCode,
+  Trash2,
+  Send,
+  Cloud,
   Key,
   AlertCircle,
   Info,
@@ -25,8 +25,12 @@ import {
   Terminal,
   BookOpen,
   Sparkles,
-  Link2
+  Link2,
+  Radio,
+  Flame
 } from 'lucide-react';
+import BroadcastPage from './pages/BroadcastPage';
+import WarmerPage from './pages/WarmerPage';
 
 const BACKEND_URL = (import.meta as any).env?.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:5001`;
 
@@ -96,7 +100,7 @@ export default function App() {
   const [showPassword, setShowPassword] = useState(false);
 
   // Navigation & Data state
-  const [activeTab, setActiveTab] = useState<'overview' | 'devices' | 'messages' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'devices' | 'messages' | 'broadcast' | 'warmer' | 'settings'>('overview');
   const [activeDocLanguage, setActiveDocLanguage] = useState<'curl' | 'nodejs' | 'python' | 'php'>('curl');
   const [aiContexts, setAiContexts] = useState<Record<string, string>>({});
   const [links, setLinks] = useState<{ id: string; code: string; originalUrl: string; shortUrl: string; clicks: number; lastClickedAt: string | null; createdAt: string }[]>([]);
@@ -640,7 +644,21 @@ export default function App() {
             <History className="w-5 h-5" />
             <span className="text-sm">Messages</span>
           </button>
-          <button 
+          <button
+            onClick={() => { setActiveTab('broadcast'); setIsSidebarOpen(false); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-semibold ${activeTab === 'broadcast' ? 'bg-primary-container text-on-primary-container sidebar-active-pill' : 'text-on-surface-variant hover:bg-surface-container-high hover:text-primary'}`}
+          >
+            <Radio className="w-5 h-5" />
+            <span className="text-sm">Broadcast</span>
+          </button>
+          <button
+            onClick={() => { setActiveTab('warmer'); setIsSidebarOpen(false); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-semibold ${activeTab === 'warmer' ? 'bg-primary-container text-on-primary-container sidebar-active-pill' : 'text-on-surface-variant hover:bg-surface-container-high hover:text-primary'}`}
+          >
+            <Flame className="w-5 h-5" />
+            <span className="text-sm">WA Warmer</span>
+          </button>
+          <button
             onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-semibold ${activeTab === 'settings' ? 'bg-primary-container text-on-primary-container sidebar-active-pill' : 'text-on-surface-variant hover:bg-surface-container-high hover:text-primary'}`}
           >
@@ -1126,6 +1144,26 @@ export default function App() {
                 </div>
               </div>
             </div>
+          )}
+
+          {activeTab === 'broadcast' && (
+            <BroadcastPage
+              backendUrl={BACKEND_URL}
+              getHeaders={getHeaders}
+              devices={devices}
+              socket={socketRef.current}
+              addToast={addToast}
+            />
+          )}
+
+          {activeTab === 'warmer' && (
+            <WarmerPage
+              backendUrl={BACKEND_URL}
+              getHeaders={getHeaders}
+              devices={devices}
+              socket={socketRef.current}
+              addToast={addToast}
+            />
           )}
 
           {/* TAB 4: API & WEBHOOK SETTINGS */}

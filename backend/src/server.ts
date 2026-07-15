@@ -7,6 +7,7 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { initSocket } from './socket';
 import { authenticateJWT, authenticateApiKey } from './middleware/auth.middleware';
+import { initScheduler } from './services/scheduler';
 
 // Controllers
 import * as authController from './controllers/auth.controller';
@@ -15,6 +16,8 @@ import * as messageController from './controllers/message.controller';
 import * as webhookController from './controllers/webhook.controller';
 import * as apikeyController from './controllers/apikey.controller';
 import * as linkController from './controllers/link.controller';
+import * as broadcastController from './controllers/broadcast.controller';
+import * as warmerController from './controllers/warmer.controller';
 
 const app = express();
 const httpServer = createServer(app);
@@ -75,8 +78,25 @@ app.post('/api/links/shorten', authenticateJWT, linkController.shortenUrl);
 app.get('/api/links', authenticateJWT, linkController.listLinks);
 app.get('/l/:code', linkController.redirectUrl);
 
+// Broadcast Routes
+app.post('/api/broadcasts', authenticateJWT, broadcastController.createBroadcast);
+app.get('/api/broadcasts', authenticateJWT, broadcastController.listBroadcasts);
+app.get('/api/broadcasts/:id', authenticateJWT, broadcastController.getBroadcast);
+app.post('/api/broadcasts/:id/start', authenticateJWT, broadcastController.startBroadcast);
+app.post('/api/broadcasts/:id/pause', authenticateJWT, broadcastController.pauseBroadcast);
+app.delete('/api/broadcasts/:id', authenticateJWT, broadcastController.deleteBroadcast);
+
+// WA Warmer Routes
+app.post('/api/warmers', authenticateJWT, warmerController.createWarmer);
+app.get('/api/warmers', authenticateJWT, warmerController.listWarmers);
+app.get('/api/warmers/:id/logs', authenticateJWT, warmerController.getWarmerLogs);
+app.post('/api/warmers/:id/start', authenticateJWT, warmerController.startWarmer);
+app.post('/api/warmers/:id/pause', authenticateJWT, warmerController.pauseWarmer);
+app.delete('/api/warmers/:id', authenticateJWT, warmerController.deleteWarmer);
+
 // Start server
 const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => {
   console.log(`[Server] SendaGo API Backend listening on port ${PORT}`);
+  initScheduler().catch((err) => console.error('[Scheduler] Failed to initialize:', err));
 });

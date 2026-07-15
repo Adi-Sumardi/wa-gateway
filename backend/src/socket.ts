@@ -129,7 +129,18 @@ export const initSocket = (server: HTTPServer) => {
           });
 
           if (updateResult.count === 0) {
-            console.log(`[Socket] Ignored stale/out-of-order or unknown message status update: ${data.messageId} -> ${data.status}`);
+            // Not a real outbound Message - could be an ack for a WA Warmer
+            // exchange, which is logged separately (warmer_logs) so internal
+            // device-to-device chatter doesn't pollute real customer history.
+            const warmerResult = await prisma.warmerLog.updateMany({
+              where: { id: data.messageId, status: { in: statusesNotAhead } },
+              data: { status: data.status, failedReason: data.failedReason || null },
+            });
+            if (warmerResult.count > 0) {
+              io?.to('dashboard').emit('warmer-log-status', { id: data.messageId, status: data.status });
+            } else {
+              console.log(`[Socket] Ignored stale/out-of-order or unknown message status update: ${data.messageId} -> ${data.status}`);
+            }
             return;
           }
 
@@ -310,8 +321,12 @@ export const initSocket = (server: HTTPServer) => {
   return io;
 };
 
-// Helper function to check and update broadcast status
-async function checkAndUpdateBroadcastStatus(broadcastId: string) {
+// Helper function to check and update broadcast status. Exported so
+// broadcast.service.ts can also call it for targets that fail before ever
+// reaching the gateway (e.g. no connected device at dispatch time) - those
+// never produce a 'message-status' ack, which is the only other place this
+// check normally runs from.
+export async function checkAndUpdateBroadcastStatus(broadcastId: string) {
   const targets = await prisma.broadcastTarget.findMany({
     where: { broadcastId },
   });
@@ -413,6 +428,12 @@ export const sendLogoutDevice = (deviceId: string) => {
   }
   gatewaySocket.emit('logout-device', { deviceId });
   return true;
+};
+
+// Emit an event to all connected dashboard clients (used by services outside
+// this module, e.g. warmer.service.ts, that don't have direct access to `io`).
+export const emitToDashboard = (event: string, payload: any) => {
+  io?.to('dashboard').emit(event, payload);
 };
 
 // Send message send directive to gateway
