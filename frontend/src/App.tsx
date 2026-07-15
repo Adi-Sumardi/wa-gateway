@@ -1260,6 +1260,79 @@ echo $response;`}
                 </div>
               </div>
 
+              {/* Panduan Integrasi Dinamis (PMB & E-Commerce) */}
+              <div className="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-6 shadow-sm space-y-6">
+                <div className="space-y-1">
+                  <h3 className="font-bold text-base flex items-center gap-2">
+                    <Smartphone className="w-5 h-5 text-primary" />
+                    Panduan Integrasi Dinamis (PMB, E-Commerce, dll.)
+                  </h3>
+                  <p className="text-xs text-on-surface-variant">Penjelasan cara mengotomatiskan nomor pengiriman secara dinamis agar Anda tidak perlu menginput data manual satu-satu.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+                  {/* Metode 1: Integrasi Database Aplikasi */}
+                  <div className="bg-surface-container-lowest border border-outline-variant/50 p-5 rounded-2xl space-y-4">
+                    <div>
+                      <h4 className="font-bold text-sm text-primary flex items-center gap-1.5 mb-1">
+                        <span className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-xs">1</span>
+                        Integrasi Otomatis (Coding)
+                      </h4>
+                      <p className="text-on-surface-variant leading-relaxed">
+                        Saat calon pendaftar (PMB) atau pembeli (E-Commerce) melakukan aksi di website Anda, gunakan <strong>variabel</strong> dari database/request untuk mengisi parameter <code>"to"</code>.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="font-bold text-[10px] uppercase text-on-surface tracking-wider">Contoh Controller (Laravel / PHP):</p>
+                      <pre className="bg-zinc-950 text-zinc-100 p-3.5 rounded-xl font-mono text-[10px] leading-relaxed overflow-x-auto select-all break-all">
+{`use Illuminate\\Support\\Facades\\Http;
+
+// Ambil data pendaftar terbaru dari DB
+$pendaftar = Pendaftar::find($id);
+
+// Kirim ke API SendaGo
+Http::withHeaders([
+    'X-API-KEY' => 'your_api_key_here'
+])->post('${BACKEND_URL}/api/messages', [
+    'to' => $pendaftar->no_whatsapp, // <-- Nomor HP Pendaftar Dinamis
+    'body' => "Halo " . $pendaftar->nama . ", tagihan PMB Anda berhasil terbit."
+]);`}
+                      </pre>
+                    </div>
+                  </div>
+
+                  {/* Metode 2: Blast Manual CSV/Excel */}
+                  <div className="bg-surface-container-lowest border border-outline-variant/50 p-5 rounded-2xl space-y-4 flex flex-col justify-between">
+                    <div className="space-y-3">
+                      <h4 className="font-bold text-sm text-primary flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-xs">2</span>
+                        Pengiriman Massal Manual (Tanpa Coding)
+                      </h4>
+                      <p className="text-on-surface-variant leading-relaxed">
+                        Jika ingin mengirim pengumuman atau promo massal tanpa menyentuh kode aplikasi:
+                      </p>
+                      <ul className="list-disc pl-4 space-y-2 text-on-surface-variant leading-relaxed">
+                        <li>Ekspor data pendaftar dari sistem PMB / E-Commerce Anda ke format <strong>CSV atau Excel</strong>. Pastikan terdapat kolom nama dan nomor HP.</li>
+                        <li>Masuk ke menu <strong className="text-primary">Kontak</strong> di sidebar kiri, buat Grup Baru (contoh: <em>"Pendaftar Jalur Mandiri"</em>), lalu klik <strong>Import</strong> untuk mengunggah file Anda.</li>
+                        <li>Masuk ke menu <strong className="text-primary">Broadcast</strong>, buat template pesan dengan variabel seperti <code>{"{{nama}}"}</code> untuk personalisasi otomatis, lalu kirim ke grup kontak tersebut sekaligus.</li>
+                      </ul>
+                    </div>
+                    <div className="pt-2 border-t border-outline-variant/20 flex gap-2">
+                      <button 
+                        onClick={() => {
+                          const messageBtn = document.querySelector('button[title="Messages"], button[onClick*="messages"]');
+                          if (messageBtn) (messageBtn as HTMLButtonElement).click();
+                        }}
+                        className="bg-primary-container text-primary font-bold px-3 py-2 rounded-xl text-[10px] hover:opacity-90 transition-opacity"
+                      >
+                        Buka Menu Broadcast
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Webhooks Section */}
               <div className="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-6 shadow-sm space-y-6">
                 <div className="space-y-1">
