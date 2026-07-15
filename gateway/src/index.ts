@@ -26,7 +26,9 @@ const clients = new Map<string, Client>();
 const messageMap = new Map<string, string>();
 
 // Map to hold outbound message queues per device ID
-const deviceQueues = new Map<string, { messageId: string; to: string; body: string; mediaUrl?: string }[]>();
+const deviceQueues = new Map<string, { messageId: string; to: string; body: string; mediaUrl?: string; attempts?: number }[]>();
+
+const MAX_SEND_ATTEMPTS = 3;
 
 // Set to track which devices have an active queue worker loop
 const activeWorkers = new Set<string>();
@@ -91,6 +93,10 @@ const startQueueWorker = (deviceId: string) => {
           sentMsg = await client.sendMessage(nextMsg.to, nextMsg.body);
         }
 
+        if (!sentMsg || !sentMsg.id) {
+          throw new Error('sendMessage returned no message (client not fully synced yet)');
+        }
+
         messageMap.set(sentMsg.id.id, nextMsg.messageId);
 
         socket.emit('message-status', {
@@ -98,12 +104,19 @@ const startQueueWorker = (deviceId: string) => {
           status: 'sent',
         });
       } catch (err: any) {
-        console.error(`[Gateway] [Queue] Error sending message on device ${deviceId}:`, err);
-        socket.emit('message-status', {
-          messageId: nextMsg.messageId,
-          status: 'failed',
-          failedReason: err.message || 'Unknown puppeteer/whatsapp error',
-        });
+        const attempts = (nextMsg.attempts || 0) + 1;
+        if (attempts < MAX_SEND_ATTEMPTS) {
+          console.warn(`[Gateway] [Queue] Send attempt ${attempts} failed on device ${deviceId}, retrying:`, err.message);
+          nextMsg.attempts = attempts;
+          queue.unshift(nextMsg);
+        } else {
+          console.error(`[Gateway] [Queue] Error sending message on device ${deviceId} after ${attempts} attempts:`, err);
+          socket.emit('message-status', {
+            messageId: nextMsg.messageId,
+            status: 'failed',
+            failedReason: err.message || 'Unknown puppeteer/whatsapp error',
+          });
+        }
       }
     }
 
