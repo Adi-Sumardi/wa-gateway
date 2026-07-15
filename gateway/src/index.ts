@@ -138,20 +138,23 @@ socket.on('init-device', async (data: { deviceId: string }) => {
   try {
     socket.emit('device-status', { deviceId, status: 'connecting' });
 
-    // Clean up stale Chromium lock files in the persistent docker volume
+    // Clean up stale Chromium lock files in the persistent docker volume.
+    // SingletonLock is a symlink pointing at "hostname-pid"; since that target
+    // never resolves on a fresh host, fs.existsSync() (which follows symlinks)
+    // wrongly reports it as absent. Use lstatSync/unlinkSync instead, which
+    // operate on the symlink itself.
     const lockPath1 = path.join(process.cwd(), '.wwebjs_auth', `session-${deviceId}`, 'SingletonLock');
     const lockPath2 = path.join(process.cwd(), '.wwebjs_auth', `session-${deviceId}`, 'Default', 'SingletonLock');
-    try {
-      if (fs.existsSync(lockPath1)) {
-        fs.unlinkSync(lockPath1);
-        console.log(`[Gateway] Cleaned up stale Chromium SingletonLock: ${lockPath1}`);
+    for (const lockPath of [lockPath1, lockPath2]) {
+      try {
+        fs.lstatSync(lockPath);
+        fs.unlinkSync(lockPath);
+        console.log(`[Gateway] Cleaned up stale Chromium SingletonLock: ${lockPath}`);
+      } catch (lockErr: any) {
+        if (lockErr.code !== 'ENOENT') {
+          console.warn('[Gateway] Stale lock cleanup warning:', lockErr.message);
+        }
       }
-      if (fs.existsSync(lockPath2)) {
-        fs.unlinkSync(lockPath2);
-        console.log(`[Gateway] Cleaned up stale Chromium Default/SingletonLock: ${lockPath2}`);
-      }
-    } catch (lockErr: any) {
-      console.warn('[Gateway] Stale lock cleanup warning:', lockErr.message);
     }
 
     const client = new Client({
