@@ -28,7 +28,7 @@ const messageMap = new Map<string, string>();
 // Map to hold outbound message queues per device ID
 const deviceQueues = new Map<string, { messageId: string; to: string; body: string; mediaUrl?: string; attempts?: number }[]>();
 
-const MAX_SEND_ATTEMPTS = 8;
+const MAX_SEND_ATTEMPTS = 3;
 
 // Set to track which devices have an active queue worker loop
 const activeWorkers = new Set<string>();
@@ -88,26 +88,35 @@ const startQueueWorker = (deviceId: string) => {
         }
         console.log(`[Gateway] [Queue] Resolved ${rawNumber} -> ${numberId._serialized}`);
 
+        // Use the resolved WID (handles the newer @lid privacy identifier
+        // format, not just @c.us) as the actual send target.
+        const chatId = numberId._serialized;
+
         let sentMsg;
         if (nextMsg.mediaUrl) {
           try {
             console.log(`[Gateway] [Media] Downloading and sending attachment: ${nextMsg.mediaUrl}`);
             const media = await MessageMedia.fromUrl(nextMsg.mediaUrl, { unsafeMime: true });
-            sentMsg = await client.sendMessage(nextMsg.to, media, { caption: nextMsg.body });
+            sentMsg = await client.sendMessage(chatId, media, { caption: nextMsg.body });
           } catch (mediaErr: any) {
             console.error(`[Gateway] [Media] Download failed. Falling back to plain text. Error:`, mediaErr.message);
             // Graceful fallback to text message
-            sentMsg = await client.sendMessage(nextMsg.to, `[Attachment Error: ${mediaErr.message}]\n\n${nextMsg.body}`);
+            sentMsg = await client.sendMessage(chatId, `[Attachment Error: ${mediaErr.message}]\n\n${nextMsg.body}`);
           }
         } else {
-          sentMsg = await client.sendMessage(nextMsg.to, nextMsg.body);
+          sentMsg = await client.sendMessage(chatId, nextMsg.body);
         }
 
-        if (!sentMsg || !sentMsg.id) {
-          throw new Error('sendMessage returned no message (client not fully synced yet)');
+        // NOTE: whatsapp-web.js can resolve/send successfully but still return
+        // undefined for @lid chats (a library bug building the return value).
+        // The send itself is not idempotent (retrying re-sends a real WhatsApp
+        // message), so a missing sentMsg is NOT treated as a failure here -
+        // only a thrown exception is. We just lose ACK tracking for this message.
+        if (sentMsg && sentMsg.id) {
+          messageMap.set(sentMsg.id.id, nextMsg.messageId);
+        } else {
+          console.warn(`[Gateway] [Queue] Sent to ${chatId} but no message metadata was returned (known whatsapp-web.js @lid issue); delivery ACKs won't be tracked for this message.`);
         }
-
-        messageMap.set(sentMsg.id.id, nextMsg.messageId);
 
         socket.emit('message-status', {
           messageId: nextMsg.messageId,
