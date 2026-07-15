@@ -27,7 +27,7 @@ services:
       JWT_SECRET: sendago-super-secret-jwt-key
       GATEWAY_TOKEN: sendago-gateway-secret-token
       PORT: 5001
-      CORS_ORIGIN: http://localhost:5173
+      CORS_ORIGIN: "*"
     ports:
       - "5001:5001"
 

@@ -28,7 +28,7 @@ import {
   Link2
 } from 'lucide-react';
 
-const BACKEND_URL = 'http://localhost:5001';
+const BACKEND_URL = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:5001`;
 
 interface UserData {
   id: string;
