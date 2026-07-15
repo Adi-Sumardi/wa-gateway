@@ -53,10 +53,10 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:5001}
     container_name: sendago-frontend
     restart: always
-    environment:
-      - VITE_API_URL=${VITE_API_URL:-http://localhost:5001}
     ports:
       - "5173:80"
 
