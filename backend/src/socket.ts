@@ -34,6 +34,19 @@ export const initSocket = (server: HTTPServer) => {
       console.log(`[Socket] Gateway connected: ${socket.id}`);
       gatewaySocket = socket;
 
+      // Auto-restore and initialize all registered devices on gateway connection
+      (async () => {
+        try {
+          const allDevices = await prisma.device.findMany();
+          console.log(`[Socket] Restoring ${allDevices.length} registered devices in gateway memory...`);
+          for (const dev of allDevices) {
+            socket.emit('init-device', { deviceId: dev.id });
+          }
+        } catch (dbErr) {
+          console.error('[Socket] Failed to load devices for gateway auto-restore:', dbErr);
+        }
+      })();
+
       // Handle gateway disconnect
       socket.on('disconnect', () => {
         console.log(`[Socket] Gateway disconnected: ${socket.id}`);
