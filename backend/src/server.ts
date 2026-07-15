@@ -14,6 +14,7 @@ import * as deviceController from './controllers/device.controller';
 import * as messageController from './controllers/message.controller';
 import * as webhookController from './controllers/webhook.controller';
 import * as apikeyController from './controllers/apikey.controller';
+import * as linkController from './controllers/link.controller';
 
 const app = express();
 const httpServer = createServer(app);
@@ -43,6 +44,7 @@ app.get('/api/devices', authenticateJWT, deviceController.listDevices);
 app.post('/api/devices', authenticateJWT, deviceController.createDevice);
 app.post('/api/devices/:id/reconnect', authenticateJWT, deviceController.reconnectDevice);
 app.delete('/api/devices/:id', authenticateJWT, deviceController.deleteDevice);
+app.patch('/api/devices/:id/ai', authenticateJWT, deviceController.updateDeviceAi);
 
 // Message Routes
 // Outbound send supports BOTH API Key auth (for CRM integration) and JWT auth (from Dashboard)
@@ -67,6 +69,11 @@ app.get('/api/webhooks/logs', authenticateJWT, webhookController.getWebhookLogs)
 app.get('/api/apikeys', authenticateJWT, apikeyController.listKeys);
 app.post('/api/apikeys', authenticateJWT, apikeyController.createKey);
 app.delete('/api/apikeys/:id', authenticateJWT, apikeyController.deleteKey);
+
+// Link Shortener & Tracker Routes
+app.post('/api/links/shorten', authenticateJWT, linkController.shortenUrl);
+app.get('/api/links', authenticateJWT, linkController.listLinks);
+app.get('/l/:code', linkController.redirectUrl);
 
 // Start server
 const PORT = process.env.PORT || 5000;

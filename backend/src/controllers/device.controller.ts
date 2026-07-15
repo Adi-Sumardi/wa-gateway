@@ -98,3 +98,30 @@ export const deleteDevice = async (req: AuthenticatedRequest, res: Response) => 
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+export const updateDeviceAi = async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const { aiEnabled, aiContext } = req.body;
+
+  if (aiEnabled === undefined && aiContext === undefined) {
+    return res.status(400).json({ error: 'Parameters "aiEnabled" or "aiContext" are required' });
+  }
+
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    const updated = await prisma.device.update({
+      where: { id, userId: req.user.id },
+      data: {
+        aiEnabled: aiEnabled !== undefined ? aiEnabled : undefined,
+        aiContext: aiContext !== undefined ? aiContext : undefined,
+      },
+    });
+
+    return res.json(updated);
+  } catch (err) {
+    console.error('Update device AI error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+

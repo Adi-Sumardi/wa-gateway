@@ -137,6 +137,11 @@ export const initSocket = (server: HTTPServer) => {
       socket.on('incoming-message', async (data: { deviceId: string; from: string; body: string }) => {
         console.log(`[Socket] Incoming message on ${data.deviceId} from ${data.from}: ${data.body.substring(0, 30)}`);
         try {
+          // Find the device
+          const device = await prisma.device.findUnique({
+            where: { id: data.deviceId }
+          });
+
           // Find or create contact
           let contact = await prisma.contact.findUnique({
             where: { phoneNumber: data.from },
@@ -183,6 +188,40 @@ export const initSocket = (server: HTTPServer) => {
               createdAt: msg.createdAt,
             },
           });
+
+          // If AI is enabled for this device, trigger auto-reply
+          if (device && device.aiEnabled) {
+            // Trigger in background to keep socket response fast
+            (async () => {
+              try {
+                // Natural typing delay of 1.5s
+                await new Promise(resolve => setTimeout(resolve, 1500));
+
+                const aiReply = await callGemini(data.body, device.aiContext || undefined);
+
+                // Create outbound message in DB
+                const outMsg = await prisma.message.create({
+                  data: {
+                    deviceId: device.id,
+                    contactId: contact.id,
+                    direction: 'outbound',
+                    content: aiReply,
+                    status: 'queued',
+                  },
+                });
+
+                // Dispatch message to gateway
+                sendWhatsappMessage({
+                  messageId: outMsg.id,
+                  deviceId: device.id,
+                  to: data.from + '@c.us',
+                  body: aiReply,
+                });
+              } catch (aiErr) {
+                console.error('[Socket] AI auto-reply execution error:', aiErr);
+              }
+            })();
+          }
         } catch (err) {
           console.error('[Socket] Error handling incoming message:', err);
         }
@@ -303,7 +342,7 @@ export const sendLogoutDevice = (deviceId: string) => {
 };
 
 // Send message send directive to gateway
-export const sendWhatsappMessage = (data: { messageId: string; deviceId: string; to: string; body: string }) => {
+export const sendWhatsappMessage = (data: { messageId: string; deviceId: string; to: string; body: string; mediaUrl?: string }) => {
   if (!gatewaySocket) {
     console.warn(`[Socket] Cannot send message. Gateway is not connected!`);
     return false;
@@ -311,3 +350,37 @@ export const sendWhatsappMessage = (data: { messageId: string; deviceId: string;
   gatewaySocket.emit('send-message', data);
   return true;
 };
+
+
+// Helper function to query Gemini API via native fetch
+async function callGemini(prompt: string, context?: string): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.warn('[Gemini] Missing GEMINI_API_KEY environment variable. AI auto-reply skipped.');
+    return 'Maaf, sistem AI Chatbot sedang tidak aktif (kunci API tidak dikonfigurasi).';
+  }
+
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: context ? { parts: [{ text: context }] } : undefined,
+      }),
+    });
+
+    const resJson = (await response.json()) as any;
+    const aiText = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (aiText) {
+      return aiText.trim();
+    }
+    console.error('[Gemini] Response parse error. Full response:', JSON.stringify(resJson));
+    return 'Maaf, saya tidak dapat memahami pesan tersebut saat ini.';
+  } catch (err) {
+    console.error('[Gemini] Request failed:', err);
+    return 'Maaf, asisten virtual sedang offline. Silakan coba kembali nanti.';
+  }
+}

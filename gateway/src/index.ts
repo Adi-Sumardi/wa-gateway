@@ -2,7 +2,7 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 import { io, Socket } from 'socket.io-client';
-import { Client, LocalAuth, MessageAck } from 'whatsapp-web.js';
+import { Client, LocalAuth, MessageAck, MessageMedia } from 'whatsapp-web.js';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
 const GATEWAY_TOKEN = process.env.GATEWAY_TOKEN || 'sendago-gateway-secret-token';
@@ -24,7 +24,7 @@ const clients = new Map<string, Client>();
 const messageMap = new Map<string, string>();
 
 // Map to hold outbound message queues per device ID
-const deviceQueues = new Map<string, { messageId: string; to: string; body: string }[]>();
+const deviceQueues = new Map<string, { messageId: string; to: string; body: string; mediaUrl?: string }[]>();
 
 // Set to track which devices have an active queue worker loop
 const activeWorkers = new Set<string>();
@@ -40,6 +40,27 @@ const startQueueWorker = (deviceId: string) => {
       return;
     }
 
+    // 1. SMART SLEEP period check: pause queue processing during specified hours (anti-banned)
+    const currentHour = new Date().getHours();
+    const sleepEnabled = process.env.SLEEP_ENABLED !== 'false'; // Default enabled
+    const sleepStart = parseInt(process.env.SLEEP_START || '22', 10); // 10 PM
+    const sleepEnd = parseInt(process.env.SLEEP_END || '7', 10);     // 7 AM
+
+    let isSleepTime = false;
+    if (sleepEnabled) {
+      if (sleepStart > sleepEnd) {
+        isSleepTime = currentHour >= sleepStart || currentHour < sleepEnd;
+      } else {
+        isSleepTime = currentHour >= sleepStart && currentHour < sleepEnd;
+      }
+    }
+
+    if (isSleepTime) {
+      console.log(`[Gateway] [Sleep] Current hour ${currentHour} is within sleep window (${sleepStart}-${sleepEnd}). Pausing queue for device ${deviceId}...`);
+      setTimeout(processQueue, 30000); // Check again in 30 seconds
+      return;
+    }
+
     const queue = deviceQueues.get(deviceId) || [];
     const client = clients.get(deviceId);
 
@@ -52,7 +73,22 @@ const startQueueWorker = (deviceId: string) => {
     if (nextMsg) {
       try {
         console.log(`[Gateway] [Queue] Sending message to ${nextMsg.to} on device ${deviceId}. Queue size: ${queue.length}`);
-        const sentMsg = await client.sendMessage(nextMsg.to, nextMsg.body);
+        
+        let sentMsg;
+        if (nextMsg.mediaUrl) {
+          try {
+            console.log(`[Gateway] [Media] Downloading and sending attachment: ${nextMsg.mediaUrl}`);
+            const media = await MessageMedia.fromUrl(nextMsg.mediaUrl, { unsafeMime: true });
+            sentMsg = await client.sendMessage(nextMsg.to, media, { caption: nextMsg.body });
+          } catch (mediaErr: any) {
+            console.error(`[Gateway] [Media] Download failed. Falling back to plain text. Error:`, mediaErr.message);
+            // Graceful fallback to text message
+            sentMsg = await client.sendMessage(nextMsg.to, `[Attachment Error: ${mediaErr.message}]\n\n${nextMsg.body}`);
+          }
+        } else {
+          sentMsg = await client.sendMessage(nextMsg.to, nextMsg.body);
+        }
+
         messageMap.set(sentMsg.id.id, nextMsg.messageId);
 
         socket.emit('message-status', {
@@ -205,9 +241,9 @@ socket.on('logout-device', async (data: { deviceId: string }) => {
   await destroyDevice(data.deviceId);
 });
 
-socket.on('send-message', async (data: { messageId: string; deviceId: string; to: string; body: string }) => {
-  const { messageId, deviceId, to, body } = data;
-  console.log(`[Gateway] Directive: Queue message on device ${deviceId} to ${to}`);
+socket.on('send-message', async (data: { messageId: string; deviceId: string; to: string; body: string; mediaUrl?: string }) => {
+  const { messageId, deviceId, to, body, mediaUrl } = data;
+  console.log(`[Gateway] Directive: Queue message on device ${deviceId} to ${to} (has media: ${!!mediaUrl})`);
 
   const client = clients.get(deviceId);
   if (!client) {
@@ -226,7 +262,7 @@ socket.on('send-message', async (data: { messageId: string; deviceId: string; to
     queue = [];
     deviceQueues.set(deviceId, queue);
   }
-  queue.push({ messageId, to, body });
+  queue.push({ messageId, to, body, mediaUrl });
 
   // Ensure worker is running
   startQueueWorker(deviceId);

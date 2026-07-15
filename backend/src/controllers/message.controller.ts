@@ -18,38 +18,45 @@ export const formatPhoneNumber = (num: string): string => {
 };
 
 export const sendMessage = async (req: Request, res: Response) => {
-  const { to, body, deviceId } = req.body;
+  const { to, body, deviceId, mediaUrl, rotate } = req.body;
 
   if (!to || !body) {
     return res.status(400).json({ error: 'Parameters "to" and "body" are required' });
   }
 
   try {
-    // 1. Find the device to send from
     const authUser = (req as AuthenticatedRequest).user;
     if (!authUser) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
+    // 1. Fetch connected devices for round-robin rotation
+    const connectedDevices = await prisma.device.findMany({
+      where: { status: 'connected', userId: authUser.id },
+      orderBy: { lastConnectedAt: 'asc' }, // oldest connected/used device comes first
+    });
+
+    if (connectedDevices.length === 0) {
+      return res.status(400).json({ error: 'No active/connected device found to send message from. Please connect a device via scan QR first.' });
+    }
+
     let device;
     if (deviceId) {
-      device = await prisma.device.findFirst({
-        where: { id: deviceId, userId: authUser.id }
-      });
+      // Find the specific device requested
+      device = connectedDevices.find(d => d.id === deviceId);
+      if (!device) {
+        return res.status(400).json({ error: 'Selected device is not connected or does not belong to you' });
+      }
     } else {
-      // Find the first connected device belonging to this user
-      device = await prisma.device.findFirst({
-        where: { status: 'connected', userId: authUser.id },
-      });
+      // Rotate: Pick the device that was used longest ago (first in the list)
+      device = connectedDevices[0];
     }
 
-    if (!device) {
-      return res.status(400).json({ error: 'No active/connected device found to send message from' });
-    }
-
-    if (device.status !== 'connected') {
-      return res.status(400).json({ error: `Selected device is in status: ${device.status}` });
-    }
+    // Update lastConnectedAt to shift this device to the end of the round-robin queue
+    await prisma.device.update({
+      where: { id: device.id },
+      data: { lastConnectedAt: new Date() },
+    });
 
     // 2. Format recipient number
     const formattedRecipient = formatPhoneNumber(to);
@@ -69,13 +76,14 @@ export const sendMessage = async (req: Request, res: Response) => {
       });
     }
 
-    // 4. Create Message record in database
+    // 4. Create Message record in database (with mediaUrl support)
     const msg = await prisma.message.create({
       data: {
         deviceId: device.id,
         contactId: contact.id,
         direction: 'outbound',
         content: body,
+        mediaUrl: mediaUrl || null,
         status: 'queued',
       },
     });
@@ -86,6 +94,7 @@ export const sendMessage = async (req: Request, res: Response) => {
       deviceId: device.id,
       to: formattedRecipient,
       body,
+      mediaUrl: mediaUrl || undefined,
     });
 
     if (!dispatched) {
@@ -102,7 +111,16 @@ export const sendMessage = async (req: Request, res: Response) => {
 
     return res.status(202).json({
       message: 'Message queued successfully',
-      data: msg,
+      data: {
+        id: msg.id,
+        deviceId: msg.deviceId,
+        deviceLabel: device.label,
+        contactId: msg.contactId,
+        content: msg.content,
+        mediaUrl: msg.mediaUrl,
+        status: msg.status,
+        createdAt: msg.createdAt,
+      },
     });
   } catch (err) {
     console.error('Send message error:', err);

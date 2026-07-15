@@ -23,7 +23,9 @@ import {
   Menu,
   Copy,
   Terminal,
-  BookOpen
+  BookOpen,
+  Sparkles,
+  Link2
 } from 'lucide-react';
 
 const BACKEND_URL = 'http://localhost:5001';
@@ -41,6 +43,8 @@ interface Device {
   phoneNumber: string | null;
   status: 'connecting' | 'connected' | 'disconnected' | 'banned';
   lastConnectedAt: string | null;
+  aiEnabled?: boolean;
+  aiContext?: string | null;
 }
 
 interface MessageLog {
@@ -94,6 +98,9 @@ export default function App() {
   // Navigation & Data state
   const [activeTab, setActiveTab] = useState<'overview' | 'devices' | 'messages' | 'settings'>('overview');
   const [activeDocLanguage, setActiveDocLanguage] = useState<'curl' | 'nodejs' | 'python' | 'php'>('curl');
+  const [aiContexts, setAiContexts] = useState<Record<string, string>>({});
+  const [links, setLinks] = useState<{ id: string; code: string; originalUrl: string; shortUrl: string; clicks: number; lastClickedAt: string | null; createdAt: string }[]>([]);
+  const [newOriginalUrl, setNewOriginalUrl] = useState('');
   const [devices, setDevices] = useState<Device[]>([]);
   const [logs, setLogs] = useState<MessageLog[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
@@ -125,6 +132,8 @@ export default function App() {
   const [sendTarget, setSendTarget] = useState('');
   const [sendMessageBody, setSendMessageBody] = useState('');
   const [sendSelectedDevice, setSendSelectedDevice] = useState('');
+  const [sendMediaUrl, setSendMediaUrl] = useState('');
+  const [sendRotateDevices, setSendRotateDevices] = useState(false);
   const [sendSuccessMsg, setSendSuccessMsg] = useState('');
   const [sendErrorMsg, setSendErrorMsg] = useState('');
   const [newKeyLabel, setNewKeyLabel] = useState('');
@@ -141,12 +150,13 @@ export default function App() {
   const loadData = async () => {
     try {
       const headers = getHeaders();
-      const [devsRes, msgsRes, keysRes, hooksRes, wLogsRes] = await Promise.all([
+      const [devsRes, msgsRes, keysRes, hooksRes, wLogsRes, linksRes] = await Promise.all([
         fetch(`${BACKEND_URL}/api/devices`, { headers }),
         fetch(`${BACKEND_URL}/api/messages`, { headers }),
         fetch(`${BACKEND_URL}/api/apikeys`, { headers }),
         fetch(`${BACKEND_URL}/api/webhooks`, { headers }),
-        fetch(`${BACKEND_URL}/api/webhooks/logs`, { headers })
+        fetch(`${BACKEND_URL}/api/webhooks/logs`, { headers }),
+        fetch(`${BACKEND_URL}/api/links`, { headers })
       ]);
 
       if (devsRes.status === 401) return handleLogout();
@@ -156,6 +166,7 @@ export default function App() {
       setApiKeys(await keysRes.json());
       setWebhooks(await hooksRes.json());
       setWebhookLogs(await wLogsRes.json());
+      setLinks(await linksRes.json());
     } catch (e) {
       console.error('Failed to load dashboard data:', e);
     }
@@ -313,6 +324,53 @@ export default function App() {
     });
   };
 
+  // Device AI configurations
+  const updateDeviceAiConfig = async (id: string, aiEnabled: boolean, aiContext: string) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/devices/${id}/ai`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify({ aiEnabled, aiContext }),
+      });
+
+      if (res.ok) {
+        const updated = await res.json();
+        setDevices(prev => prev.map(d => d.id === id ? { ...d, aiEnabled: updated.aiEnabled, aiContext: updated.aiContext } : d));
+        addToast('Device AI settings updated successfully!', 'success');
+      } else {
+        const error = await res.json();
+        addToast(error.error || 'Failed to update AI settings', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      addToast('Network error updating AI settings', 'error');
+    }
+  };
+
+  // Link Tracker Actions
+  const createShortLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newOriginalUrl) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/links/shorten`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ originalUrl: newOriginalUrl }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLinks(prev => [data.data, ...prev]);
+        setNewOriginalUrl('');
+        addToast('URL shortened and click tracker created!', 'success');
+      } else {
+        const error = await res.json();
+        addToast(error.error || 'Failed to shorten URL', 'error');
+      }
+    } catch (err) {
+      addToast('Network error shortening URL', 'error');
+    }
+  };
+
   // Message Sender
   const sendTestMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -320,7 +378,9 @@ export default function App() {
     setSendErrorMsg('');
     try {
       const payload: any = { to: sendTarget, body: sendMessageBody };
-      if (sendSelectedDevice) payload.deviceId = sendSelectedDevice;
+      if (sendSelectedDevice && !sendRotateDevices) payload.deviceId = sendSelectedDevice;
+      if (sendMediaUrl) payload.mediaUrl = sendMediaUrl;
+      if (sendRotateDevices) payload.rotate = true;
 
       const res = await fetch(`${BACKEND_URL}/api/messages`, {
         method: 'POST',
@@ -333,6 +393,7 @@ export default function App() {
       addToast('Message queued successfully!', 'success');
       setSendTarget('');
       setSendMessageBody('');
+      setSendMediaUrl('');
       const messageLogs = await (await fetch(`${BACKEND_URL}/api/messages`, { headers: getHeaders() })).json();
       setLogs(messageLogs);
     } catch (err: any) {
@@ -861,6 +922,45 @@ export default function App() {
                           </div>
                         )}
 
+                        {/* AI Chatbot Configuration */}
+                        <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 space-y-3 mt-4">
+                          <div className="flex justify-between items-center">
+                            <h4 className="font-bold text-xs flex items-center gap-1.5 text-on-surface">
+                              <Sparkles className="w-4 h-4 text-primary" />
+                              AI Auto-Reply Bot
+                            </h4>
+                            <label className="relative inline-flex items-center cursor-pointer scale-90">
+                              <input 
+                                type="checkbox" 
+                                checked={dev.aiEnabled || false} 
+                                onChange={(e) => updateDeviceAiConfig(dev.id, e.target.checked, dev.aiContext || '')}
+                                className="sr-only peer"
+                              />
+                              <div className="w-9 h-5 bg-zinc-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                            </label>
+                          </div>
+                          
+                          {dev.aiEnabled && (
+                            <div className="space-y-2 animate-fade-in text-xs text-left">
+                              <label className="text-[10px] font-bold text-on-surface-variant">System Instructions / Context</label>
+                              <textarea
+                                placeholder="E.g. Anda adalah asisten PMB Universitas. Jawab pertanyaan pendaftaran ujian masuk dengan sopan..."
+                                value={aiContexts[dev.id] !== undefined ? aiContexts[dev.id] : (dev.aiContext || '')}
+                                onChange={(e) => {
+                                  setAiContexts(prev => ({ ...prev, [dev.id]: e.target.value }));
+                                }}
+                                className="w-full bg-surface-container-low border border-outline-variant rounded-lg p-2 text-xs outline-none focus:border-primary resize-y min-h-[60px]"
+                              />
+                              <button
+                                onClick={() => updateDeviceAiConfig(dev.id, dev.aiEnabled || false, aiContexts[dev.id] || dev.aiContext || '')}
+                                className="w-full bg-primary text-on-primary font-bold py-1.5 rounded-lg text-[10px] hover:opacity-90 active:scale-95 transition-all"
+                              >
+                                Save AI Context
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
                         <div className="flex gap-2 border-t border-outline-variant/30 pt-4 mt-auto">
                           {dev.status !== 'connected' && dev.status !== 'connecting' && (
                             <button 
@@ -907,7 +1007,8 @@ export default function App() {
                     <select 
                       value={sendSelectedDevice} 
                       onChange={e => setSendSelectedDevice(e.target.value)}
-                      className="w-full px-3 py-3 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
+                      disabled={sendRotateDevices}
+                      className="w-full px-3 py-3 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none disabled:opacity-50"
                     >
                       <option value="">First Connected Device</option>
                       {devices.filter(d => d.status === 'connected').map(d => (
@@ -926,12 +1027,35 @@ export default function App() {
                       required
                     />
                   </div>
+                  <div className="flex items-center gap-2 h-[46px] px-1 pb-1">
+                    <label className="flex items-center gap-2 cursor-pointer font-bold text-on-surface-variant select-none">
+                      <input 
+                        type="checkbox" 
+                        checked={sendRotateDevices}
+                        onChange={e => setSendRotateDevices(e.target.checked)}
+                        className="w-4.5 h-4.5 rounded border-outline-variant text-primary focus:ring-primary"
+                      />
+                      <span>Rotate Devices (Round-Robin)</span>
+                    </label>
+                  </div>
+
+                  <div className="md:col-span-2 space-y-1">
+                    <label className="font-bold text-on-surface-variant px-1">Attachment URL (Optional - Image, PDF, Document)</label>
+                    <input 
+                      type="url" 
+                      placeholder="e.g. https://domain.com/file.pdf" 
+                      value={sendMediaUrl}
+                      onChange={e => setSendMediaUrl(e.target.value)}
+                      className="w-full px-3 py-3 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
+                    />
+                  </div>
                   <div>
-                    <button className="w-full bg-primary text-on-primary py-3 rounded-xl font-bold transition-opacity hover:opacity-90 flex items-center justify-center gap-1.5">
+                    <button className="w-full bg-primary text-on-primary py-3 rounded-xl font-bold transition-opacity hover:opacity-90 flex items-center justify-center gap-1.5 h-[46px]">
                       <Send className="w-4 h-4" />
                       Send Message
                     </button>
                   </div>
+                  
                   <div className="md:col-span-3 space-y-1">
                     <label className="font-bold text-on-surface-variant px-1">Message content</label>
                     <textarea 
@@ -1417,6 +1541,82 @@ Http::withHeaders([
                       {webhookLogs.length === 0 && (
                         <tr>
                           <td colSpan={5} className="py-6 text-center text-on-surface-variant">No webhook delivery logs.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              {/* URL Shortener & Link Tracking Section */}
+              <div className="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-6 shadow-sm space-y-6">
+                <div className="space-y-1">
+                  <h3 className="font-bold text-base flex items-center gap-2 text-on-surface">
+                    <Link2 className="w-5 h-5 text-primary" />
+                    URL Shortener & Click Tracker
+                  </h3>
+                  <p className="text-xs text-on-surface-variant">Create click-trackable shortened links. Insert these links into your WhatsApp notifications to get read/click analytics.</p>
+                </div>
+
+                <form onSubmit={createShortLink} className="flex gap-3 text-xs">
+                  <input 
+                    type="url" 
+                    placeholder="Enter long destination URL e.g. https://yoursite.com/pmb/invoice/123" 
+                    value={newOriginalUrl}
+                    onChange={e => setNewOriginalUrl(e.target.value)}
+                    className="flex-1 px-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
+                    required
+                  />
+                  <button className="bg-primary text-on-primary font-bold px-4 rounded-xl hover:opacity-90">
+                    Shorten Link
+                  </button>
+                </form>
+
+                <div className="overflow-x-auto text-xs">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-outline-variant/30 text-on-surface-variant uppercase font-bold tracking-wider">
+                        <th className="py-2.5 px-4">Original URL</th>
+                        <th className="py-2.5 px-4">Shortened URL</th>
+                        <th className="py-2.5 px-4 text-center">Clicks</th>
+                        <th className="py-2.5 px-4">Last Clicked</th>
+                        <th className="py-2.5 px-4">Created At</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-outline-variant/20 font-medium">
+                      {links.map(link => (
+                        <tr key={link.id}>
+                          <td className="py-3 px-4 truncate max-w-[200px]" title={link.originalUrl}>
+                            <a href={link.originalUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{link.originalUrl}</a>
+                          </td>
+                          <td className="py-3 px-4 font-mono font-bold select-all flex items-center gap-1.5">
+                            <span>{link.shortUrl}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(link.shortUrl);
+                                addToast('Short link copied!', 'success');
+                              }}
+                              className="text-on-surface-variant hover:text-primary transition-colors p-1"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <span className="bg-primary-container text-on-primary-container px-2 py-0.5 rounded-full font-bold">
+                              {link.clicks} clicks
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-on-surface-variant font-mono">
+                            {link.lastClickedAt ? new Date(link.lastClickedAt).toLocaleString() : 'Never'}
+                          </td>
+                          <td className="py-3 px-4 text-on-surface-variant font-mono">
+                            {new Date(link.createdAt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                      {links.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="py-6 text-center text-on-surface-variant">No shortened URLs tracked yet.</td>
                         </tr>
                       )}
                     </tbody>
