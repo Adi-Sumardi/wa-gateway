@@ -269,6 +269,10 @@ socket.on('init-device', async (data: { deviceId: string }) => {
         // reliable target for replying to this exact sender.
         fromWid: msg.from,
         body: msg.body,
+        // WhatsApp's own id for this message, used by the backend to dedupe
+        // in case this 'message' event is ever re-emitted for the same
+        // message (e.g. session resync after a reconnect).
+        waMessageId: msg.id.id,
       });
     });
 

@@ -1,9 +1,20 @@
 import { Server as SocketServer, Socket } from 'socket.io';
 import { Server as HTTPServer } from 'http';
-import { PrismaClient, DeviceStatus } from '@prisma/client';
+import { PrismaClient, DeviceStatus, MessageStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
 const GATEWAY_TOKEN = process.env.GATEWAY_TOKEN || 'sendago-gateway-secret-token';
+
+// Lifecycle order for outbound message status ACKs, used to reject
+// out-of-order updates (e.g. a late 'sent' ack arriving after 'read').
+// 'failed' is treated as terminal/final and always wins.
+const MESSAGE_STATUS_RANK: Record<MessageStatus, number> = {
+  queued: 0,
+  sent: 1,
+  delivered: 2,
+  read: 3,
+  failed: 4,
+};
 
 let io: SocketServer | null = null;
 let gatewaySocket: Socket | null = null;
@@ -59,7 +70,7 @@ export const initSocket = (server: HTTPServer) => {
       socket.on('device-status', async (data: { deviceId: string; status: DeviceStatus; phoneNumber?: string }) => {
         console.log(`[Socket] Device status update: ${data.deviceId} -> ${data.status} (phone: ${data.phoneNumber})`);
         try {
-          await prisma.device.update({
+          const result = await prisma.device.updateMany({
             where: { id: data.deviceId },
             data: {
               status: data.status,
@@ -67,6 +78,12 @@ export const initSocket = (server: HTTPServer) => {
               lastConnectedAt: data.status === 'connected' ? new Date() : undefined,
             },
           });
+          if (result.count === 0) {
+            // Device was deleted (e.g. from the dashboard) while the gateway
+            // still had it in memory and later emitted a status for it.
+            console.warn(`[Socket] Ignored status update for unknown/deleted device ${data.deviceId}`);
+            return;
+          }
           // Broadcast to all dashboard clients
           io?.to('dashboard').emit('device-status', data);
 
@@ -90,15 +107,34 @@ export const initSocket = (server: HTTPServer) => {
       });
 
       // Handle message status update from gateway
-      socket.on('message-status', async (data: { messageId: string; status: any; failedReason?: string }) => {
+      socket.on('message-status', async (data: { messageId: string; status: MessageStatus; failedReason?: string }) => {
         console.log(`[Socket] Message status update: ${data.messageId} -> ${data.status}`);
         try {
-          const updatedMsg = await prisma.message.update({
-            where: { id: data.messageId },
+          const rank = MESSAGE_STATUS_RANK[data.status] ?? 0;
+          // ACK events from the gateway can arrive out of order (concurrent
+          // async DB writes racing each other). Only apply this update if it
+          // doesn't regress the message to an earlier point in its lifecycle
+          // (e.g. a late 'sent' ack must not overwrite an already-'read'
+          // message) - done atomically in the WHERE clause, not via a
+          // separate read-then-write, to avoid a TOCTOU race between them.
+          const statusesNotAhead = (Object.keys(MESSAGE_STATUS_RANK) as (keyof typeof MESSAGE_STATUS_RANK)[])
+            .filter((s) => MESSAGE_STATUS_RANK[s] <= rank);
+
+          const updateResult = await prisma.message.updateMany({
+            where: { id: data.messageId, status: { in: statusesNotAhead } },
             data: {
               status: data.status,
               failedReason: data.failedReason || null,
             },
+          });
+
+          if (updateResult.count === 0) {
+            console.log(`[Socket] Ignored stale/out-of-order or unknown message status update: ${data.messageId} -> ${data.status}`);
+            return;
+          }
+
+          const updatedMsg = await prisma.message.findUniqueOrThrow({
+            where: { id: data.messageId },
             include: { contact: true, device: true },
           });
 
@@ -147,9 +183,22 @@ export const initSocket = (server: HTTPServer) => {
       });
 
       // Handle incoming message from gateway
-      socket.on('incoming-message', async (data: { deviceId: string; from: string; fromWid?: string; body: string }) => {
+      socket.on('incoming-message', async (data: { deviceId: string; from: string; fromWid?: string; body: string; waMessageId?: string }) => {
         try {
           console.log(`[Socket] Incoming message on ${data.deviceId} from ${data.from}: ${(data.body || '').substring(0, 30)}`);
+
+          // whatsapp-web.js can re-emit the same 'message' event after a
+          // reconnect/session resync. Without a dedupe check this creates a
+          // duplicate DB row and, if AI auto-reply is enabled, sends the
+          // user two separate replies for one incoming message.
+          if (data.waMessageId) {
+            const existing = await prisma.message.findUnique({ where: { waMessageId: data.waMessageId } });
+            if (existing) {
+              console.log(`[Socket] Ignored duplicate incoming message (waMessageId=${data.waMessageId})`);
+              return;
+            }
+          }
+
           // Find the device
           const device = await prisma.device.findUnique({
             where: { id: data.deviceId }
@@ -177,6 +226,7 @@ export const initSocket = (server: HTTPServer) => {
               direction: 'inbound',
               content: data.body,
               status: 'read', // incoming messages are default read
+              waMessageId: data.waMessageId || undefined,
             },
           });
 
@@ -270,12 +320,19 @@ async function checkAndUpdateBroadcastStatus(broadcastId: string) {
   const hasFailed = targets.some(t => t.status === 'failed');
 
   if (allDone) {
-    await prisma.broadcast.update({
-      where: { id: broadcastId },
+    // Two 'message-status' events for different targets of the same
+    // broadcast can each reach "all done" and race here. Guard the flip to
+    // a terminal state atomically in the WHERE clause so only the first
+    // caller actually applies it and emits the notification - otherwise
+    // both would double-fire 'broadcast-status' to the dashboard.
+    const result = await prisma.broadcast.updateMany({
+      where: { id: broadcastId, status: { notIn: ['completed', 'failed'] } },
       data: {
         status: hasFailed ? 'failed' : 'completed',
       },
     });
+
+    if (result.count === 0) return;
 
     // Notify dashboard
     io?.to('dashboard').emit('broadcast-status', {

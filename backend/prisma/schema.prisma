@@ -166,6 +166,9 @@ model Message {
   mediaUrl     String?          @map("media_url")
   status       MessageStatus    @default(queued)
   failedReason String?          @db.Text @map("failed_reason")
+  // WhatsApp's own message id for inbound messages, used to deduplicate
+  // if whatsapp-web.js re-emits the same 'message' event (reconnect/resync).
+  waMessageId  String?          @unique @map("wa_message_id")
   createdAt    DateTime         @default(now()) @map("created_at")
   device       Device           @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   contact      Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
