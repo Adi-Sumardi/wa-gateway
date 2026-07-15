@@ -175,6 +175,15 @@ socket.on('init-device', async (data: { deviceId: string }) => {
         clientId: deviceId,
         dataPath: './.wwebjs_auth',
       }),
+      // The whatsapp-web.js dependency ships a bundled WhatsApp Web version
+      // that goes stale as WhatsApp updates their site, breaking the
+      // library's internal Store injection (sendMessage silently returns
+      // undefined). Pull a current version from the community-maintained
+      // cache instead of relying on the bundled one.
+      webVersionCache: {
+        type: 'remote',
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1043179329-alpha.html',
+      },
       puppeteer: {
         headless: true,
         args: [
