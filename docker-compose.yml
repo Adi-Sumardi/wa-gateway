@@ -9,6 +9,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: sendago
+      TZ: Asia/Jakarta
     ports:
       - "5432:5432"
     volumes:
@@ -30,6 +31,7 @@ services:
       GATEWAY_TOKEN: sendago-gateway-secret-token
       PORT: 5001
       CORS_ORIGIN: "*"
+      TZ: Asia/Jakarta
     ports:
       - "5001:5001"
 
@@ -46,6 +48,7 @@ services:
       GATEWAY_TOKEN: sendago-gateway-secret-token
       MIN_SEND_DELAY: 3000
       MAX_SEND_DELAY: 7000
+      TZ: Asia/Jakarta
     volumes:
       - gateway_auth:/app/.wwebjs_auth
 
