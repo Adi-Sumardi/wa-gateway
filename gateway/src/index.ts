@@ -1,5 +1,7 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
+import * as fs from 'fs';
+import * as path from 'path';
 
 import { io, Socket } from 'socket.io-client';
 import { Client, LocalAuth, MessageAck, MessageMedia } from 'whatsapp-web.js';
@@ -135,6 +137,22 @@ socket.on('init-device', async (data: { deviceId: string }) => {
 
   try {
     socket.emit('device-status', { deviceId, status: 'connecting' });
+
+    // Clean up stale Chromium lock files in the persistent docker volume
+    const lockPath1 = path.join(process.cwd(), '.wwebjs_auth', `session-${deviceId}`, 'SingletonLock');
+    const lockPath2 = path.join(process.cwd(), '.wwebjs_auth', `session-${deviceId}`, 'Default', 'SingletonLock');
+    try {
+      if (fs.existsSync(lockPath1)) {
+        fs.unlinkSync(lockPath1);
+        console.log(`[Gateway] Cleaned up stale Chromium SingletonLock: ${lockPath1}`);
+      }
+      if (fs.existsSync(lockPath2)) {
+        fs.unlinkSync(lockPath2);
+        console.log(`[Gateway] Cleaned up stale Chromium Default/SingletonLock: ${lockPath2}`);
+      }
+    } catch (lockErr: any) {
+      console.warn('[Gateway] Stale lock cleanup warning:', lockErr.message);
+    }
 
     const client = new Client({
       authStrategy: new LocalAuth({
