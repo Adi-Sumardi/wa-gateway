@@ -197,7 +197,7 @@ export const initSocket = (server: HTTPServer) => {
                 // Natural typing delay of 1.5s
                 await new Promise(resolve => setTimeout(resolve, 1500));
 
-                const aiReply = await callGemini(data.body, device.aiContext || undefined);
+                const aiReply = await callAiChatbot(data.body, device.aiContext || undefined);
 
                 // Create outbound message in DB
                 const outMsg = await prisma.message.create({
@@ -352,35 +352,72 @@ export const sendWhatsappMessage = (data: { messageId: string; deviceId: string;
 };
 
 
-// Helper function to query Gemini API via native fetch
-async function callGemini(prompt: string, context?: string): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.warn('[Gemini] Missing GEMINI_API_KEY environment variable. AI auto-reply skipped.');
-    return 'Maaf, sistem AI Chatbot sedang tidak aktif (kunci API tidak dikonfigurasi).';
-  }
+// Helper function to query AI API (supports OpenAI ChatGPT and Google Gemini)
+async function callAiChatbot(prompt: string, context?: string): Promise<string> {
+  const openAiKey = process.env.OPENAI_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY;
 
-  try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        systemInstruction: context ? { parts: [{ text: context }] } : undefined,
-      }),
-    });
+  if (openAiKey) {
+    try {
+      console.log('[AI] Querying OpenAI API...');
+      const messages = [];
+      if (context) {
+        messages.push({ role: 'system', content: context });
+      }
+      messages.push({ role: 'user', content: prompt });
 
-    const resJson = (await response.json()) as any;
-    const aiText = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (aiText) {
-      return aiText.trim();
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openAiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages,
+        }),
+      });
+
+      const resJson = (await response.json()) as any;
+      const aiText = resJson.choices?.[0]?.message?.content;
+      if (aiText) {
+        return aiText.trim();
+      }
+      console.error('[OpenAI] Response parse error. Full response:', JSON.stringify(resJson));
+      return 'Maaf, saya tidak dapat memahami pesan tersebut saat ini.';
+    } catch (err) {
+      console.error('[OpenAI] Request failed:', err);
+      return 'Maaf, asisten virtual sedang offline. Silakan coba kembali nanti.';
     }
-    console.error('[Gemini] Response parse error. Full response:', JSON.stringify(resJson));
-    return 'Maaf, saya tidak dapat memahami pesan tersebut saat ini.';
-  } catch (err) {
-    console.error('[Gemini] Request failed:', err);
-    return 'Maaf, asisten virtual sedang offline. Silakan coba kembali nanti.';
   }
+
+  if (geminiKey) {
+    try {
+      console.log('[AI] Querying Gemini API...');
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          systemInstruction: context ? { parts: [{ text: context }] } : undefined,
+        }),
+      });
+
+      const resJson = (await response.json()) as any;
+      const aiText = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (aiText) {
+        return aiText.trim();
+      }
+      console.error('[Gemini] Response parse error. Full response:', JSON.stringify(resJson));
+      return 'Maaf, saya tidak dapat memahami pesan tersebut saat ini.';
+    } catch (err) {
+      console.error('[Gemini] Request failed:', err);
+      return 'Maaf, asisten virtual sedang offline. Silakan coba kembali nanti.';
+    }
+  }
+
+  console.warn('[AI] Neither OPENAI_API_KEY nor GEMINI_API_KEY is configured.');
+  return 'Maaf, sistem AI Chatbot sedang tidak aktif (kunci API tidak dikonfigurasi).';
 }
