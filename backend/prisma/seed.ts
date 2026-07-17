@@ -17,6 +17,11 @@ const PERMISSIONS: { key: string; label: string; category: string }[] = [
   { key: 'links.manage', label: 'Manage link shortener', category: 'Settings' },
   { key: 'settings.view', label: 'View API & Settings page', category: 'Settings' },
   { key: 'users.manage', label: 'Manage users, roles & permissions', category: 'Users' },
+  { key: 'contacts.view', label: 'View contacts & groups', category: 'Contacts' },
+  { key: 'contacts.manage', label: 'Manage contacts & groups', category: 'Contacts' },
+  { key: 'templates.view', label: 'View message templates', category: 'Templates' },
+  { key: 'templates.manage', label: 'Manage message templates', category: 'Templates' },
+  { key: 'audit.view', label: 'View audit log', category: 'Users' },
 ];
 
 // operator/viewer defaults; admin is always fully granted regardless of this table
@@ -28,6 +33,8 @@ const DEFAULT_GRANTS: Record<Exclude<Role, 'admin'>, string[]> = {
     'warmer.view', 'warmer.manage',
     'links.manage',
     'settings.view',
+    'contacts.view', 'contacts.manage',
+    'templates.view', 'templates.manage',
   ],
   viewer: [
     'devices.view',
@@ -35,6 +42,8 @@ const DEFAULT_GRANTS: Record<Exclude<Role, 'admin'>, string[]> = {
     'broadcast.view',
     'warmer.view',
     'settings.view',
+    'contacts.view',
+    'templates.view',
   ],
 };
 

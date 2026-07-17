@@ -125,6 +125,7 @@ model ContactGroupMember {
 
 model Template {
   id         String      @id @default(uuid()) @db.Uuid
+  userId     String?     @db.Uuid @map("user_id")
   name       String
   content    String      @db.Text
   mediaUrl   String?     @map("media_url")

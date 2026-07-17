@@ -3,6 +3,7 @@ import { PrismaClient, Role } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { getGrantedKeys } from '../services/permission.service';
+import { logAudit } from '../services/audit.service';
 
 const prisma = new PrismaClient();
 
@@ -22,6 +23,7 @@ export const listUsers = async (req: AuthenticatedRequest, res: Response) => {
 };
 
 export const createUser = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { name, email, password, role } = req.body;
 
   if (!name || !email || !password) {
@@ -43,6 +45,7 @@ export const createUser = async (req: AuthenticatedRequest, res: Response) => {
       select: USER_SELECT,
     });
 
+    logAudit(req.user.id, 'user.create', `Created user "${user.email}" with role ${user.role}`);
     return res.status(201).json(user);
   } catch (err) {
     console.error('Create user error:', err);
@@ -51,6 +54,7 @@ export const createUser = async (req: AuthenticatedRequest, res: Response) => {
 };
 
 export const updateUser = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { id } = req.params;
   const { name, role, isActive } = req.body;
 
@@ -84,6 +88,13 @@ export const updateUser = async (req: AuthenticatedRequest, res: Response) => {
       select: USER_SELECT,
     });
 
+    if (role !== undefined || isActive !== undefined) {
+      logAudit(
+        req.user.id,
+        'user.update',
+        `Updated user "${target.email}"${role !== undefined ? ` role -> ${role}` : ''}${isActive !== undefined ? ` isActive -> ${isActive}` : ''}`
+      );
+    }
     return res.json(updated);
   } catch (err) {
     console.error('Update user error:', err);
@@ -119,6 +130,7 @@ export const getPermissionMatrix = async (req: AuthenticatedRequest, res: Respon
 };
 
 export const updatePermissionMatrix = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { updates } = req.body as { updates: { role: Role; permissionKey: string; granted: boolean }[] };
 
   if (!Array.isArray(updates)) {
@@ -140,9 +152,24 @@ export const updatePermissionMatrix = async (req: AuthenticatedRequest, res: Res
         )
     );
 
+    logAudit(req.user.id, 'permissions.update', `Updated ${updates.filter((u) => u.role !== 'admin').length} permission grant(s)`);
     return res.json({ message: 'Permission matrix updated' });
   } catch (err) {
     console.error('Update permission matrix error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const getAuditLogs = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const logs = await prisma.auditLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      include: { user: { select: { name: true, email: true } } },
+    });
+    return res.json(logs);
+  } catch (err) {
+    console.error('Get audit logs error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };

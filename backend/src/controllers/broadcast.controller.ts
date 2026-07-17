@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import * as broadcastService from '../services/broadcast.service';
+import { logAudit } from '../services/audit.service';
 
 const prisma = new PrismaClient();
 
@@ -11,16 +12,17 @@ export const createBroadcast = async (req: Request, res: Response) => {
 
   const {
     name, content, mediaUrl, deviceId, rotateDevices, phoneNumbers,
-    delayMinSeconds, delayMaxSeconds, sleepEnabled, sleepStart, sleepEnd, scheduledAt,
+    delayMinSeconds, delayMaxSeconds, sleepEnabled, sleepStart, sleepEnd, scheduledAt, templateId,
   } = req.body;
 
-  if (!name || !content || !deviceId || !Array.isArray(phoneNumbers) || phoneNumbers.length === 0) {
-    return res.status(400).json({ error: 'Parameters "name", "content", "deviceId" and a non-empty "phoneNumbers" array are required' });
+  if (!name || (!content && !templateId) || !deviceId || !Array.isArray(phoneNumbers) || phoneNumbers.length === 0) {
+    return res.status(400).json({ error: 'Parameters "name", "content" (or "templateId"), "deviceId" and a non-empty "phoneNumbers" array are required' });
   }
 
   try {
     const broadcast = await broadcastService.createBroadcast({
       userId: authUser.id,
+      isAdmin: authUser.role === 'admin',
       name,
       content,
       mediaUrl,
@@ -33,6 +35,7 @@ export const createBroadcast = async (req: Request, res: Response) => {
       sleepStart,
       sleepEnd,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
+      templateId,
     });
 
     // Immediate send (no scheduledAt) starts right away.
@@ -151,5 +154,6 @@ export const deleteBroadcast = async (req: Request, res: Response) => {
 
   await broadcastService.pauseBroadcast(broadcast.id).catch(() => undefined);
   await prisma.broadcast.delete({ where: { id: broadcast.id } });
+  logAudit(authUser.id, 'broadcast.delete', `Deleted broadcast "${broadcast.name}"`);
   return res.json({ message: 'Broadcast deleted' });
 };

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import * as warmerService from '../services/warmer.service';
+import { logAudit } from '../services/audit.service';
 
 const prisma = new PrismaClient();
 
@@ -118,5 +119,6 @@ export const deleteWarmer = async (req: Request, res: Response) => {
 
   await warmerService.pauseWarmer(session.id).catch(() => undefined);
   await prisma.warmerSession.delete({ where: { id: session.id } });
+  logAudit(authUser.id, 'warmer.delete', `Deleted warmer session "${session.name}"`);
   return res.json({ message: 'Warmer session deleted' });
 };

@@ -20,6 +20,9 @@ import * as linkController from './controllers/link.controller';
 import * as broadcastController from './controllers/broadcast.controller';
 import * as warmerController from './controllers/warmer.controller';
 import * as userController from './controllers/user.controller';
+import * as contactController from './controllers/contact.controller';
+import * as contactGroupController from './controllers/contact-group.controller';
+import * as templateController from './controllers/template.controller';
 
 const app = express();
 const httpServer = createServer(app);
@@ -53,6 +56,7 @@ app.post('/api/users', authenticateJWT, requirePermission('users.manage'), userC
 app.patch('/api/users/:id', authenticateJWT, requirePermission('users.manage'), userController.updateUser);
 app.get('/api/permissions', authenticateJWT, requirePermission('users.manage'), userController.getPermissionMatrix);
 app.put('/api/permissions', authenticateJWT, requirePermission('users.manage'), userController.updatePermissionMatrix);
+app.get('/api/audit-logs', authenticateJWT, requirePermission('audit.view'), userController.getAuditLogs);
 
 // Device Management Routes
 app.get('/api/devices', authenticateJWT, requirePermission('devices.view'), deviceController.listDevices);
@@ -60,6 +64,7 @@ app.post('/api/devices', authenticateJWT, requirePermission('devices.manage'), d
 app.post('/api/devices/:id/reconnect', authenticateJWT, requirePermission('devices.manage'), deviceController.reconnectDevice);
 app.delete('/api/devices/:id', authenticateJWT, requirePermission('devices.manage'), deviceController.deleteDevice);
 app.patch('/api/devices/:id/ai', authenticateJWT, requirePermission('devices.manage'), deviceController.updateDeviceAi);
+app.patch('/api/devices/:id/transfer', authenticateJWT, requirePermission('devices.manage'), deviceController.transferDevice);
 
 // Message Routes
 // Outbound send supports BOTH API Key auth (for CRM integration) and JWT auth (from Dashboard)
@@ -101,6 +106,23 @@ app.get('/api/broadcasts/:id', authenticateJWT, requirePermission('broadcast.vie
 app.post('/api/broadcasts/:id/start', authenticateJWT, requirePermission('broadcast.manage'), broadcastController.startBroadcast);
 app.post('/api/broadcasts/:id/pause', authenticateJWT, requirePermission('broadcast.manage'), broadcastController.pauseBroadcast);
 app.delete('/api/broadcasts/:id', authenticateJWT, requirePermission('broadcast.manage'), broadcastController.deleteBroadcast);
+
+// Contact & Contact Group Routes
+app.get('/api/contacts', authenticateJWT, requirePermission('contacts.view'), contactController.listContacts);
+app.post('/api/contacts', authenticateJWT, requirePermission('contacts.manage'), contactController.createContact);
+app.patch('/api/contacts/:id', authenticateJWT, requirePermission('contacts.manage'), contactController.updateContact);
+app.delete('/api/contacts/:id', authenticateJWT, requirePermission('contacts.manage'), contactController.deleteContact);
+
+app.get('/api/contact-groups', authenticateJWT, requirePermission('contacts.view'), contactGroupController.listGroups);
+app.post('/api/contact-groups', authenticateJWT, requirePermission('contacts.manage'), contactGroupController.createGroup);
+app.delete('/api/contact-groups/:id', authenticateJWT, requirePermission('contacts.manage'), contactGroupController.deleteGroup);
+app.put('/api/contact-groups/:id/members', authenticateJWT, requirePermission('contacts.manage'), contactGroupController.setGroupMembers);
+
+// Template Routes
+app.get('/api/templates', authenticateJWT, requirePermission('templates.view'), templateController.listTemplates);
+app.post('/api/templates', authenticateJWT, requirePermission('templates.manage'), templateController.createTemplate);
+app.patch('/api/templates/:id', authenticateJWT, requirePermission('templates.manage'), templateController.updateTemplate);
+app.delete('/api/templates/:id', authenticateJWT, requirePermission('templates.manage'), templateController.deleteTemplate);
 
 // WA Warmer Routes
 app.post('/api/warmers', authenticateJWT, requirePermission('warmer.manage'), warmerController.createWarmer);

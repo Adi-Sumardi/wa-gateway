@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import * as crypto from 'crypto';
+import { logAudit } from '../services/audit.service';
 
 const prisma = new PrismaClient();
 
@@ -51,6 +52,8 @@ export const createKey = async (req: AuthenticatedRequest, res: Response) => {
       },
     });
 
+    logAudit(req.user.id, 'apikey.create', `Created API key "${label}"`);
+
     // Return the rawKey only on creation so the user can copy it
     return res.status(201).json({
       message: 'API Key generated successfully. Please copy it now as it will not be shown again.',
@@ -83,6 +86,7 @@ export const deleteKey = async (req: AuthenticatedRequest, res: Response) => {
     }
 
     await prisma.apiKey.delete({ where: { id } });
+    logAudit(req.user.id, 'apikey.delete', `Revoked API key "${key.label}"`);
     return res.json({ message: 'API Key revoked and deleted successfully' });
   } catch (err) {
     console.error('Delete API key error:', err);

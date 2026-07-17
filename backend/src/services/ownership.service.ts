@@ -17,15 +17,16 @@ export const backfillLegacyOwnership = async () => {
     return;
   }
 
-  const [contacts, webhooks, links] = await Promise.all([
+  const [contacts, webhooks, links, templates] = await Promise.all([
     prisma.contact.updateMany({ where: { userId: null }, data: { userId: admin.id } }),
     prisma.webhook.updateMany({ where: { userId: null }, data: { userId: admin.id } }),
     prisma.linkTracker.updateMany({ where: { userId: null }, data: { userId: admin.id } }),
+    prisma.template.updateMany({ where: { userId: null }, data: { userId: admin.id } }),
   ]);
 
-  if (contacts.count || webhooks.count || links.count) {
+  if (contacts.count || webhooks.count || links.count || templates.count) {
     console.log(
-      `[Ownership] Backfilled legacy data to admin ${admin.email}: ${contacts.count} contacts, ${webhooks.count} webhooks, ${links.count} links.`
+      `[Ownership] Backfilled legacy data to admin ${admin.email}: ${contacts.count} contacts, ${webhooks.count} webhooks, ${links.count} links, ${templates.count} templates.`
     );
   }
 };

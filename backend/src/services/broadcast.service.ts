@@ -24,7 +24,7 @@ const isInSleepWindow = (hour: number, sleepStart: number, sleepEnd: number) => 
 export const createBroadcast = async (params: {
   userId: string;
   name: string;
-  content: string;
+  content?: string;
   mediaUrl?: string;
   deviceId: string;
   rotateDevices: boolean;
@@ -35,9 +35,11 @@ export const createBroadcast = async (params: {
   sleepStart?: number;
   sleepEnd?: number;
   scheduledAt?: Date;
+  templateId?: string;
+  isAdmin?: boolean;
 }) => {
   const device = await prisma.device.findFirst({
-    where: { id: params.deviceId, userId: params.userId },
+    where: params.isAdmin ? { id: params.deviceId } : { id: params.deviceId, userId: params.userId },
   });
   if (!device) {
     throw new Error('Selected device not found or does not belong to you');
@@ -66,23 +68,39 @@ export const createBroadcast = async (params: {
   }
 
   // Broadcast has no "content" column of its own - it's designed to reference
-  // a Template instead. Create a throwaway Template to hold this broadcast's
-  // freeform body/media so dispatch (including after a restart) always reads
-  // content the same way, whether the caller picked an existing template or
-  // just typed a message.
-  const template = await prisma.template.create({
-    data: {
-      name: `[broadcast] ${params.name}`,
-      content: params.content,
-      mediaUrl: params.mediaUrl || null,
-      mediaType: params.mediaUrl ? 'document' : 'none',
-    },
-  });
+  // a Template instead. If the caller picked an existing saved template,
+  // reuse it directly instead of creating a duplicate row; otherwise create
+  // a throwaway Template to hold this broadcast's freeform body/media so
+  // dispatch (including after a restart) always reads content the same way.
+  let templateId: string;
+  if (params.templateId) {
+    const existing = await prisma.template.findFirst({
+      where: params.isAdmin ? { id: params.templateId } : { id: params.templateId, userId: params.userId },
+    });
+    if (!existing) {
+      throw new Error('Selected template not found or does not belong to you');
+    }
+    templateId = existing.id;
+  } else {
+    if (!params.content) {
+      throw new Error('Either "content" or "templateId" is required');
+    }
+    const template = await prisma.template.create({
+      data: {
+        userId: params.userId,
+        name: `[broadcast] ${params.name}`,
+        content: params.content,
+        mediaUrl: params.mediaUrl || null,
+        mediaType: params.mediaUrl ? 'document' : 'none',
+      },
+    });
+    templateId = template.id;
+  }
 
   const broadcast = await prisma.broadcast.create({
     data: {
       name: params.name,
-      templateId: template.id,
+      templateId,
       deviceId: device.id,
       createdBy: params.userId,
       status: params.scheduledAt ? 'scheduled' : 'draft',

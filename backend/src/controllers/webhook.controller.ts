@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
+import { logAudit } from '../services/audit.service';
 
 const prisma = new PrismaClient();
 
@@ -35,6 +36,7 @@ export const createWebhook = async (req: AuthenticatedRequest, res: Response) =>
         isActive: true,
       },
     });
+    logAudit(req.user.id, 'webhook.create', `Created webhook for ${url}`);
     return res.status(201).json(webhook);
   } catch (err) {
     console.error('Create webhook error:', err);
@@ -55,6 +57,7 @@ export const deleteWebhook = async (req: AuthenticatedRequest, res: Response) =>
     }
 
     await prisma.webhook.delete({ where: { id } });
+    logAudit(req.user.id, 'webhook.delete', `Deleted webhook for ${webhook.url}`);
     return res.json({ message: 'Webhook deleted successfully' });
   } catch (err) {
     console.error('Delete webhook error:', err);

@@ -27,12 +27,20 @@ interface Broadcast {
   failedTargets: number;
 }
 
+interface TemplateOption {
+  id: string;
+  name: string;
+  content: string;
+  mediaUrl: string | null;
+}
+
 interface Props {
   backendUrl: string;
   getHeaders: () => Record<string, string>;
   devices: Device[];
   socket: Socket | null;
   addToast: (message: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
+  hasPermission: (key: string) => boolean;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -44,8 +52,10 @@ const STATUS_STYLES: Record<string, string> = {
   failed: 'bg-red-100 text-error',
 };
 
-export default function BroadcastPage({ backendUrl, getHeaders, devices, socket, addToast }: Props) {
+export default function BroadcastPage({ backendUrl, getHeaders, devices, socket, addToast, hasPermission }: Props) {
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
+  const [templates, setTemplates] = useState<TemplateOption[]>([]);
+  const [templateId, setTemplateId] = useState('');
   const [name, setName] = useState('');
   const [content, setContent] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');
@@ -71,8 +81,18 @@ export default function BroadcastPage({ backendUrl, getHeaders, devices, socket,
     }
   };
 
+  const fetchTemplates = async () => {
+    try {
+      const res = await fetch(`${backendUrl}/api/templates`, { headers: getHeaders() });
+      if (res.ok) setTemplates(await res.json());
+    } catch (err) {
+      console.error('Failed to load templates:', err);
+    }
+  };
+
   useEffect(() => {
     fetchBroadcasts();
+    fetchTemplates();
   }, []);
 
   useEffect(() => {
@@ -95,6 +115,10 @@ export default function BroadcastPage({ backendUrl, getHeaders, devices, socket,
       addToast('Add at least one recipient number', 'error');
       return;
     }
+    if (!templateId && !content) {
+      addToast('Type a message or pick a saved template', 'error');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -103,8 +127,9 @@ export default function BroadcastPage({ backendUrl, getHeaders, devices, socket,
         headers: getHeaders(),
         body: JSON.stringify({
           name: name || `Broadcast ${new Date().toLocaleString()}`,
-          content,
-          mediaUrl: mediaUrl || undefined,
+          content: templateId ? undefined : content,
+          mediaUrl: templateId ? undefined : (mediaUrl || undefined),
+          templateId: templateId || undefined,
           deviceId,
           rotateDevices,
           phoneNumbers,
@@ -123,6 +148,7 @@ export default function BroadcastPage({ backendUrl, getHeaders, devices, socket,
       setName('');
       setContent('');
       setMediaUrl('');
+      setTemplateId('');
       setRecipients('');
       setScheduledAt('');
       fetchBroadcasts();
@@ -156,6 +182,7 @@ export default function BroadcastPage({ backendUrl, getHeaders, devices, socket,
         <p className="text-on-surface-variant text-sm mt-1">Send a paced, anti-ban bulk message to many recipients at once</p>
       </div>
 
+      {hasPermission('broadcast.manage') && (
       <div className="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-6 shadow-sm space-y-4">
         <h3 className="font-bold text-base flex items-center gap-2">
           <Radio className="w-5 h-5 text-primary" />
@@ -198,28 +225,48 @@ export default function BroadcastPage({ backendUrl, getHeaders, devices, socket,
             </label>
           </div>
 
-          <div className="md:col-span-3 space-y-1">
-            <label className="font-bold text-on-surface-variant px-1">Message content</label>
-            <textarea
-              rows={2}
-              placeholder="Type the message to broadcast..."
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="w-full px-3 py-3 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
-              required
-            />
-          </div>
+          {templates.length > 0 && (
+            <div className="md:col-span-3 space-y-1">
+              <label className="font-bold text-on-surface-variant px-1">Use saved template (optional)</label>
+              <select
+                value={templateId}
+                onChange={(e) => setTemplateId(e.target.value)}
+                className="w-full px-3 py-3 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
+              >
+                <option value="">Type a new message instead</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
-          <div className="md:col-span-3 space-y-1">
-            <label className="font-bold text-on-surface-variant px-1">Attachment URL (optional)</label>
-            <input
-              type="url"
-              placeholder="e.g. https://domain.com/file.pdf"
-              value={mediaUrl}
-              onChange={(e) => setMediaUrl(e.target.value)}
-              className="w-full px-3 py-3 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
-            />
-          </div>
+          {!templateId && (
+            <>
+              <div className="md:col-span-3 space-y-1">
+                <label className="font-bold text-on-surface-variant px-1">Message content</label>
+                <textarea
+                  rows={2}
+                  placeholder="Type the message to broadcast..."
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  className="w-full px-3 py-3 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
+                  required
+                />
+              </div>
+
+              <div className="md:col-span-3 space-y-1">
+                <label className="font-bold text-on-surface-variant px-1">Attachment URL (optional)</label>
+                <input
+                  type="url"
+                  placeholder="e.g. https://domain.com/file.pdf"
+                  value={mediaUrl}
+                  onChange={(e) => setMediaUrl(e.target.value)}
+                  className="w-full px-3 py-3 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
+                />
+              </div>
+            </>
+          )}
 
           <div className="md:col-span-3 space-y-1">
             <label className="font-bold text-on-surface-variant px-1">Recipients (one number per line)</label>
@@ -305,6 +352,7 @@ export default function BroadcastPage({ backendUrl, getHeaders, devices, socket,
           </div>
         </form>
       </div>
+      )}
 
       <div className="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-6 shadow-sm space-y-4">
         <h3 className="font-bold text-base">Broadcasts</h3>
@@ -334,21 +382,23 @@ export default function BroadcastPage({ backendUrl, getHeaders, devices, socket,
                   </td>
                   <td className="py-3.5 px-4 font-mono text-on-surface-variant">{new Date(b.createdAt).toLocaleString()}</td>
                   <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-2">
-                      {(b.status === 'paused' || b.status === 'draft') && (
-                        <button onClick={() => runAction(b.id, 'start')} className="p-1.5 rounded-lg bg-primary-container text-on-primary-container" title="Start">
-                          <Play className="w-3.5 h-3.5" />
+                    {hasPermission('broadcast.manage') && (
+                      <div className="flex items-center gap-2">
+                        {(b.status === 'paused' || b.status === 'draft') && (
+                          <button onClick={() => runAction(b.id, 'start')} className="p-1.5 rounded-lg bg-primary-container text-on-primary-container" title="Start">
+                            <Play className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {b.status === 'running' && (
+                          <button onClick={() => runAction(b.id, 'pause')} className="p-1.5 rounded-lg bg-amber-100 text-amber-800" title="Pause">
+                            <Pause className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button onClick={() => runAction(b.id, 'delete')} className="p-1.5 rounded-lg bg-error-container text-error" title="Delete">
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
-                      )}
-                      {b.status === 'running' && (
-                        <button onClick={() => runAction(b.id, 'pause')} className="p-1.5 rounded-lg bg-amber-100 text-amber-800" title="Pause">
-                          <Pause className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      <button onClick={() => runAction(b.id, 'delete')} className="p-1.5 rounded-lg bg-error-container text-error" title="Delete">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}

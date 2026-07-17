@@ -39,9 +39,10 @@ interface Props {
   devices: Device[];
   socket: Socket | null;
   addToast: (message: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
+  hasPermission: (key: string) => boolean;
 }
 
-export default function WarmerPage({ backendUrl, getHeaders, devices, socket, addToast }: Props) {
+export default function WarmerPage({ backendUrl, getHeaders, devices, socket, addToast, hasPermission }: Props) {
   const [sessions, setSessions] = useState<WarmerSession[]>([]);
   const [name, setName] = useState('');
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
@@ -172,6 +173,7 @@ export default function WarmerPage({ backendUrl, getHeaders, devices, socket, ad
         <p className="text-on-surface-variant text-sm mt-1">Let your own devices chat with each other to build number trust before bulk sending</p>
       </div>
 
+      {hasPermission('warmer.manage') && (
       <div className="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-6 shadow-sm space-y-4">
         <h3 className="font-bold text-base flex items-center gap-2">
           <Flame className="w-5 h-5 text-primary" />
@@ -278,6 +280,7 @@ export default function WarmerPage({ backendUrl, getHeaders, devices, socket, ad
           </div>
         </form>
       </div>
+      )}
 
       <div className="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-6 shadow-sm space-y-4">
         <h3 className="font-bold text-base">Warmer Sessions</h3>
@@ -308,21 +311,23 @@ export default function WarmerPage({ backendUrl, getHeaders, devices, socket, ad
                   </td>
                   <td className="py-3.5 px-4 font-mono">{s._count.logs}</td>
                   <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-2">
-                      {s.status === 'paused' && (
-                        <button onClick={() => runAction(s.id, 'start')} className="p-1.5 rounded-lg bg-primary-container text-on-primary-container" title="Start">
-                          <Play className="w-3.5 h-3.5" />
+                    {hasPermission('warmer.manage') && (
+                      <div className="flex items-center gap-2">
+                        {s.status === 'paused' && (
+                          <button onClick={() => runAction(s.id, 'start')} className="p-1.5 rounded-lg bg-primary-container text-on-primary-container" title="Start">
+                            <Play className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {s.status === 'active' && (
+                          <button onClick={() => runAction(s.id, 'pause')} className="p-1.5 rounded-lg bg-amber-100 text-amber-800" title="Pause">
+                            <Pause className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button onClick={() => runAction(s.id, 'delete')} className="p-1.5 rounded-lg bg-error-container text-error" title="Delete">
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
-                      )}
-                      {s.status === 'active' && (
-                        <button onClick={() => runAction(s.id, 'pause')} className="p-1.5 rounded-lg bg-amber-100 text-amber-800" title="Pause">
-                          <Pause className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      <button onClick={() => runAction(s.id, 'delete')} className="p-1.5 rounded-lg bg-error-container text-error" title="Delete">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}

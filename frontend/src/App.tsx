@@ -28,11 +28,14 @@ import {
   Link2,
   Radio,
   Flame,
-  Users
+  Users,
+  Contact as ContactIcon,
+  ArrowRightLeft
 } from 'lucide-react';
 import BroadcastPage from './pages/BroadcastPage';
 import WarmerPage from './pages/WarmerPage';
 import UsersRolesPage from './pages/UsersRolesPage';
+import ContactsPage from './pages/ContactsPage';
 
 const BACKEND_URL = (import.meta as any).env?.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:5001`;
 
@@ -102,7 +105,7 @@ export default function App() {
   const [showPassword, setShowPassword] = useState(false);
 
   // Navigation & Data state
-  const [activeTab, setActiveTab] = useState<'overview' | 'devices' | 'messages' | 'broadcast' | 'warmer' | 'settings' | 'users'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'devices' | 'messages' | 'broadcast' | 'warmer' | 'settings' | 'users' | 'contacts'>('overview');
   const [permissions, setPermissions] = useState<string[]>([]);
   const hasPermission = (key: string) => permissions.includes(key);
   const [activeDocLanguage, setActiveDocLanguage] = useState<'curl' | 'nodejs' | 'python' | 'php'>('curl');
@@ -110,6 +113,7 @@ export default function App() {
   const [links, setLinks] = useState<{ id: string; code: string; originalUrl: string; shortUrl: string; clicks: number; lastClickedAt: string | null; createdAt: string }[]>([]);
   const [newOriginalUrl, setNewOriginalUrl] = useState('');
   const [devices, setDevices] = useState<Device[]>([]);
+  const [allUsers, setAllUsers] = useState<{ id: string; name: string; email: string }[]>([]);
   const [logs, setLogs] = useState<MessageLog[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [webhooks, setWebhooks] = useState<Webhook[]>([]);
@@ -215,6 +219,12 @@ export default function App() {
           loadData();
           loadPermissions();
           initSocket();
+          if (data.role === 'admin') {
+            fetch(`${BACKEND_URL}/api/users`, { headers: { 'Authorization': `Bearer ${token}` } })
+              .then(r => r.ok ? r.json() : [])
+              .then(setAllUsers)
+              .catch(() => {});
+          }
         })
         .catch(() => handleLogout());
     }
@@ -341,6 +351,23 @@ export default function App() {
         }
       }
     });
+  };
+
+  const transferDevice = async (id: string, targetUserId: string) => {
+    if (!targetUserId) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/devices/${id}/transfer`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify({ userId: targetUserId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to transfer device');
+      addToast('Device transferred successfully', 'success');
+      setDevices(prev => prev.filter(d => d.id !== id));
+    } catch (err: any) {
+      addToast(err.message || 'Failed to transfer device', 'error');
+    }
   };
 
   // Device AI configurations
@@ -673,6 +700,15 @@ export default function App() {
             <Flame className="w-5 h-5" />
             <span className="text-sm">WA Warmer</span>
           </button>
+          {hasPermission('contacts.view') && (
+            <button
+              onClick={() => { setActiveTab('contacts'); setIsSidebarOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-semibold ${activeTab === 'contacts' ? 'bg-primary-container text-on-primary-container sidebar-active-pill' : 'text-on-surface-variant hover:bg-surface-container-high hover:text-primary'}`}
+            >
+              <ContactIcon className="w-5 h-5" />
+              <span className="text-sm">Contacts</span>
+            </button>
+          )}
           <button
             onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-semibold ${activeTab === 'settings' ? 'bg-primary-container text-on-primary-container sidebar-active-pill' : 'text-on-surface-variant hover:bg-surface-container-high hover:text-primary'}`}
@@ -1027,6 +1063,21 @@ export default function App() {
                             </button>
                           </div>
                         )}
+                        {user.role === 'admin' && allUsers.length > 0 && (
+                          <div className="flex items-center gap-2 border-t border-outline-variant/30 pt-3 mt-3">
+                            <ArrowRightLeft className="w-3.5 h-3.5 text-on-surface-variant flex-shrink-0" />
+                            <select
+                              onChange={(e) => { if (e.target.value) { transferDevice(dev.id, e.target.value); e.target.value = ''; } }}
+                              defaultValue=""
+                              className="flex-1 px-2 py-1.5 bg-surface-container-lowest border border-outline-variant rounded-lg text-[10px] outline-none"
+                            >
+                              <option value="" disabled>Transfer to user...</option>
+                              {allUsers.map(u => (
+                                <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1183,6 +1234,7 @@ export default function App() {
               devices={devices}
               socket={socketRef.current}
               addToast={addToast}
+              hasPermission={hasPermission}
             />
           )}
 
@@ -1193,6 +1245,17 @@ export default function App() {
               devices={devices}
               socket={socketRef.current}
               addToast={addToast}
+              hasPermission={hasPermission}
+            />
+          )}
+
+          {activeTab === 'contacts' && hasPermission('contacts.view') && (
+            <ContactsPage
+              backendUrl={BACKEND_URL}
+              getHeaders={getHeaders}
+              addToast={addToast}
+              hasPermission={hasPermission}
+              setConfirmDialog={setConfirmDialog}
             />
           )}
 
@@ -1234,19 +1297,21 @@ export default function App() {
                   </div>
                 )}
 
-                <form onSubmit={createApiKey} className="flex gap-3 text-xs">
-                  <input 
-                    type="text" 
-                    placeholder="Enter key label e.g. CRM System Key" 
-                    value={newKeyLabel}
-                    onChange={e => setNewKeyLabel(e.target.value)}
-                    className="flex-1 px-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
-                    required
-                  />
-                  <button className="bg-primary text-on-primary font-bold px-4 rounded-xl hover:opacity-90">
-                    Generate Token
-                  </button>
-                </form>
+                {hasPermission('apikeys.manage') && (
+                  <form onSubmit={createApiKey} className="flex gap-3 text-xs">
+                    <input
+                      type="text"
+                      placeholder="Enter key label e.g. CRM System Key"
+                      value={newKeyLabel}
+                      onChange={e => setNewKeyLabel(e.target.value)}
+                      className="flex-1 px-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
+                      required
+                    />
+                    <button className="bg-primary text-on-primary font-bold px-4 rounded-xl hover:opacity-90">
+                      Generate Token
+                    </button>
+                  </form>
+                )}
 
                 <div className="divide-y divide-outline-variant/20 text-xs">
                   {apiKeys.map(key => (
@@ -1268,12 +1333,14 @@ export default function App() {
                             View
                           </button>
                         )}
-                        <button 
-                          onClick={() => deleteApiKey(key.id)}
-                          className="bg-error-container text-error px-3 py-1.5 rounded-xl font-bold hover:opacity-90"
-                        >
-                          Revoke
-                        </button>
+                        {hasPermission('apikeys.manage') && (
+                          <button
+                            onClick={() => deleteApiKey(key.id)}
+                            className="bg-error-container text-error px-3 py-1.5 rounded-xl font-bold hover:opacity-90"
+                          >
+                            Revoke
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1545,21 +1612,23 @@ Http::withHeaders([
                   <p className="text-xs text-on-surface-variant">Register a Callback URL. We will perform a POST request to your URL whenever events occur.</p>
                 </div>
 
-                <form onSubmit={createWebhook} className="space-y-4 text-xs">
-                  <div className="flex gap-3">
-                    <input 
-                      type="url" 
-                      placeholder="https://yourdomain.com/webhooks/whatsapp" 
-                      value={newWebhookUrl}
-                      onChange={e => setNewWebhookUrl(e.target.value)}
-                      className="flex-1 px-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
-                      required
-                    />
-                    <button className="bg-primary text-on-primary font-bold px-4 rounded-xl hover:opacity-90">
-                      Add Webhook
-                    </button>
-                  </div>
-                </form>
+                {hasPermission('webhooks.manage') && (
+                  <form onSubmit={createWebhook} className="space-y-4 text-xs">
+                    <div className="flex gap-3">
+                      <input
+                        type="url"
+                        placeholder="https://yourdomain.com/webhooks/whatsapp"
+                        value={newWebhookUrl}
+                        onChange={e => setNewWebhookUrl(e.target.value)}
+                        className="flex-1 px-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
+                        required
+                      />
+                      <button className="bg-primary text-on-primary font-bold px-4 rounded-xl hover:opacity-90">
+                        Add Webhook
+                      </button>
+                    </div>
+                  </form>
+                )}
 
                 <div className="divide-y divide-outline-variant/20 text-xs">
                   {webhooks.map(hook => (
@@ -1572,12 +1641,14 @@ Http::withHeaders([
                           ))}
                         </div>
                       </div>
-                      <button 
-                        onClick={() => deleteWebhook(hook.id)}
-                        className="bg-error-container text-error px-3 py-1.5 rounded-xl font-bold hover:opacity-90"
-                      >
-                        Delete
-                      </button>
+                      {hasPermission('webhooks.manage') && (
+                        <button
+                          onClick={() => deleteWebhook(hook.id)}
+                          className="bg-error-container text-error px-3 py-1.5 rounded-xl font-bold hover:opacity-90"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                   ))}
                   {webhooks.length === 0 && (

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Users, UserPlus, Shield } from 'lucide-react';
+import { Users, UserPlus, Shield, History } from 'lucide-react';
 
 interface UserRow {
   id: string;
@@ -8,6 +8,14 @@ interface UserRow {
   role: 'admin' | 'operator' | 'viewer';
   isActive: boolean;
   createdAt: string;
+}
+
+interface AuditLogRow {
+  id: string;
+  action: string;
+  detail: string;
+  createdAt: string;
+  user: { name: string; email: string };
 }
 
 interface PermissionRow {
@@ -33,6 +41,7 @@ const ROLE_BADGE: Record<string, string> = {
 
 export default function UsersRolesPage({ backendUrl, getHeaders, addToast, currentUserId, setConfirmDialog }: Props) {
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogRow[]>([]);
   const [matrix, setMatrix] = useState<PermissionRow[]>([]);
   const [pendingMatrix, setPendingMatrix] = useState<PermissionRow[]>([]);
   const [name, setName] = useState('');
@@ -64,9 +73,19 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
     }
   };
 
+  const fetchAuditLogs = async () => {
+    try {
+      const res = await fetch(`${backendUrl}/api/audit-logs`, { headers: getHeaders() });
+      if (res.ok) setAuditLogs(await res.json());
+    } catch (err) {
+      console.error('Failed to load audit logs:', err);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
     fetchMatrix();
+    fetchAuditLogs();
   }, []);
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -339,6 +358,41 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
                   ))}
                 </React.Fragment>
               ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-6 shadow-sm space-y-4">
+        <h3 className="font-bold text-sm flex items-center gap-2">
+          <History className="w-5 h-5" /> Audit Log
+        </h3>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left text-xs">
+            <thead>
+              <tr className="border-b border-outline-variant/30 text-on-surface-variant uppercase font-bold tracking-wider">
+                <th className="py-3 px-4">Time</th>
+                <th className="py-3 px-4">User</th>
+                <th className="py-3 px-4">Action</th>
+                <th className="py-3 px-4">Detail</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-outline-variant/20 font-medium">
+              {auditLogs.map((log) => (
+                <tr key={log.id} className="hover:bg-surface-container-lowest transition-colors">
+                  <td className="py-2.5 px-4 font-mono text-on-surface-variant whitespace-nowrap">{new Date(log.createdAt).toLocaleString()}</td>
+                  <td className="py-2.5 px-4">{log.user.name}</td>
+                  <td className="py-2.5 px-4 font-mono">{log.action}</td>
+                  <td className="py-2.5 px-4 text-on-surface-variant">{log.detail}</td>
+                </tr>
+              ))}
+              {auditLogs.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="py-6 text-center text-on-surface-variant">
+                    No audit activity recorded yet.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
