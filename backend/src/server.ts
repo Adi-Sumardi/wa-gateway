@@ -28,9 +28,12 @@ const httpServer = createServer(app);
 initSocket(httpServer);
 
 // Configure middleware
+// Auth uses a Bearer token in the Authorization header, not cookies, so
+// credentials:true is unnecessary here - and actively breaks CORS when
+// CORS_ORIGIN is "*", since browsers reject a wildcard origin combined
+// with Access-Control-Allow-Credentials on the same response.
 app.use(cors({
   origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
-  credentials: true,
 }));
 app.use(express.json());
 
