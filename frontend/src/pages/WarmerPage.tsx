@@ -58,7 +58,30 @@ export default function WarmerPage({ backendUrl, getHeaders, devices, socket, ad
   const fetchSessions = async () => {
     try {
       const res = await fetch(`${backendUrl}/api/warmers`, { headers: getHeaders() });
-      if (res.ok) setSessions(await res.json());
+      if (!res.ok) return;
+      const data: WarmerSession[] = await res.json();
+      setSessions(data);
+
+      const labelByDeviceId = new Map<string, string>();
+      data.forEach((s) => s.devices.forEach((d) => labelByDeviceId.set(d.device.id, d.device.label)));
+
+      const logLists = await Promise.all(
+        data.map((s) =>
+          fetch(`${backendUrl}/api/warmers/${s.id}/logs`, { headers: getHeaders() })
+            .then((r) => (r.ok ? r.json() : []))
+            .catch(() => [])
+        )
+      );
+      const merged: WarmerLogEntry[] = logLists
+        .flat()
+        .map((log: WarmerLogEntry) => ({
+          ...log,
+          fromDeviceLabel: labelByDeviceId.get(log.fromDeviceId),
+          toDeviceLabel: labelByDeviceId.get(log.toDeviceId),
+        }))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 50);
+      setRecentLogs(merged);
     } catch (err) {
       console.error('Failed to load warmer sessions:', err);
     }
