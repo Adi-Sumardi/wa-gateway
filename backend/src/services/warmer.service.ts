@@ -67,13 +67,23 @@ async function runWarmerTick(sessionId: string) {
     return;
   }
 
-  const fromIdx = Math.floor(Math.random() * connectedDevices.length);
-  let toIdx = Math.floor(Math.random() * connectedDevices.length);
-  while (toIdx === fromIdx) {
-    toIdx = Math.floor(Math.random() * connectedDevices.length);
+  // Alternate turns: whoever received the last message sends this one, so two
+  // devices go back-and-forth (A -> B, then B -> A, ...) instead of a random pair.
+  const lastLog = await prisma.warmerLog.findFirst({
+    where: { warmerSessionId: session.id },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  let fromDevice = connectedDevices[0];
+  let toDevice = connectedDevices[1];
+  if (lastLog) {
+    const lastReceiver = connectedDevices.find((d) => d.id === lastLog.toDeviceId);
+    const lastSender = connectedDevices.find((d) => d.id === lastLog.fromDeviceId);
+    if (lastReceiver && lastSender) {
+      fromDevice = lastReceiver;
+      toDevice = lastSender;
+    }
   }
-  const fromDevice = connectedDevices[fromIdx];
-  const toDevice = connectedDevices[toIdx];
 
   const pool: string[] = Array.isArray(session.messagePool) && (session.messagePool as string[]).length > 0
     ? (session.messagePool as string[])
