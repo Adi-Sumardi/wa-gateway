@@ -155,6 +155,8 @@ export const resumeActiveWarmers = async () => {
   const active = await prisma.warmerSession.findMany({ where: { status: 'active' } });
   for (const s of active) {
     console.log(`[Warmer] Resuming active warmer session ${s.id} after restart`);
-    scheduleTick(s.id, 0);
+    // Give the gateway socket a chance to reconnect after a fresh backend boot
+    // before the first tick runs, so it doesn't fail immediately every deploy.
+    scheduleTick(s.id, 15_000);
   }
 };
