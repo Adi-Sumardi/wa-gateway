@@ -67,10 +67,12 @@ async function runWarmerTick(sessionId: string) {
     return;
   }
 
-  // Alternate turns: whoever received the last message sends this one, so two
-  // devices go back-and-forth (A -> B, then B -> A, ...) instead of a random pair.
+  // Alternate turns: whoever received the last successfully-dispatched message sends
+  // this one, so two devices go back-and-forth (A -> B, then B -> A, ...). Failed
+  // attempts are ignored here so a transient send failure doesn't strand the
+  // rotation permanently on one device.
   const lastLog = await prisma.warmerLog.findFirst({
-    where: { warmerSessionId: session.id },
+    where: { warmerSessionId: session.id, status: { not: 'failed' } },
     orderBy: { createdAt: 'desc' },
   });
 
@@ -128,7 +130,10 @@ async function runWarmerTick(sessionId: string) {
     createdAt: log.createdAt,
   });
 
-  scheduleTick(sessionId, nextDelay);
+  // On failure, retry sooner than the normal cadence so a transient hiccup
+  // (e.g. the gateway reconnecting) doesn't leave one device's turn waiting
+  // up to maxIntervalMinutes before it's picked up again.
+  scheduleTick(sessionId, dispatched ? nextDelay : Math.min(nextDelay, 3 * 60_000));
 }
 
 export const startWarmer = async (sessionId: string) => {
