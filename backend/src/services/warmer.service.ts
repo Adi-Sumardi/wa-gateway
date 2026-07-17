@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { sendWhatsappMessage, emitToDashboard } from '../socket';
+import { sendWhatsappMessage, emitToOwner } from '../socket';
 import { formatPhoneNumber } from '../controllers/message.controller';
 
 const prisma = new PrismaClient();
@@ -118,7 +118,7 @@ async function runWarmerTick(sessionId: string) {
 
   // Broadcast the exchange to dashboards, mirroring the existing 'new-message'
   // live-update pattern in socket.ts.
-  emitToDashboard('warmer-log', {
+  emitToOwner(session.userId, 'warmer-log', {
     id: log.id,
     warmerSessionId: session.id,
     fromDeviceId: fromDevice.id,

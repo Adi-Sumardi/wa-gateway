@@ -8,6 +8,7 @@ import { createServer } from 'http';
 import { initSocket } from './socket';
 import { authenticateJWT, authenticateApiKey, requirePermission } from './middleware/auth.middleware';
 import { initScheduler } from './services/scheduler';
+import { backfillLegacyOwnership } from './services/ownership.service';
 
 // Controllers
 import * as authController from './controllers/auth.controller';
@@ -110,5 +111,6 @@ app.delete('/api/warmers/:id', authenticateJWT, requirePermission('warmer.manage
 const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => {
   console.log(`[Server] SendaGo API Backend listening on port ${PORT}`);
+  backfillLegacyOwnership().catch((err) => console.error('[Ownership] Backfill failed:', err));
   initScheduler().catch((err) => console.error('[Scheduler] Failed to initialize:', err));
 });

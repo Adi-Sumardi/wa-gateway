@@ -29,6 +29,7 @@ export const shortenUrl = async (req: AuthenticatedRequest, res: Response) => {
 
     const link = await prisma.linkTracker.create({
       data: {
+        userId: req.user.id,
         code,
         originalUrl,
       },
@@ -60,6 +61,7 @@ export const listLinks = async (req: AuthenticatedRequest, res: Response) => {
 
   try {
     const links = await prisma.linkTracker.findMany({
+      where: req.user.role === 'admin' ? {} : { userId: req.user.id },
       orderBy: { createdAt: 'desc' },
     });
 

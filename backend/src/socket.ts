@@ -1,9 +1,11 @@
 import { Server as SocketServer, Socket } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import { PrismaClient, DeviceStatus, MessageStatus } from '@prisma/client';
+import * as jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
 const GATEWAY_TOKEN = process.env.GATEWAY_TOKEN || 'sendago-gateway-secret-token';
+const JWT_SECRET = process.env.JWT_SECRET || 'sendago-super-secret-jwt-key';
 
 // Lifecycle order for outbound message status ACKs, used to reject
 // out-of-order updates (e.g. a late 'sent' ack arriving after 'read').
@@ -70,7 +72,15 @@ export const initSocket = (server: HTTPServer) => {
       socket.on('device-status', async (data: { deviceId: string; status: DeviceStatus; phoneNumber?: string }) => {
         console.log(`[Socket] Device status update: ${data.deviceId} -> ${data.status} (phone: ${data.phoneNumber})`);
         try {
-          const result = await prisma.device.updateMany({
+          const device = await prisma.device.findUnique({ where: { id: data.deviceId }, select: { userId: true } });
+          if (!device) {
+            // Device was deleted (e.g. from the dashboard) while the gateway
+            // still had it in memory and later emitted a status for it.
+            console.warn(`[Socket] Ignored status update for unknown/deleted device ${data.deviceId}`);
+            return;
+          }
+
+          await prisma.device.update({
             where: { id: data.deviceId },
             data: {
               status: data.status,
@@ -78,17 +88,11 @@ export const initSocket = (server: HTTPServer) => {
               lastConnectedAt: data.status === 'connected' ? new Date() : undefined,
             },
           });
-          if (result.count === 0) {
-            // Device was deleted (e.g. from the dashboard) while the gateway
-            // still had it in memory and later emitted a status for it.
-            console.warn(`[Socket] Ignored status update for unknown/deleted device ${data.deviceId}`);
-            return;
-          }
-          // Broadcast to all dashboard clients
-          io?.to('dashboard').emit('device-status', data);
+
+          emitToOwner(device.userId, 'device-status', data);
 
           // Trigger Webhooks for device connection state changes
-          triggerWebhooks('device.status', {
+          triggerWebhooks(device.userId, 'device.status', {
             deviceId: data.deviceId,
             status: data.status,
             phoneNumber: data.phoneNumber || null,
@@ -100,10 +104,15 @@ export const initSocket = (server: HTTPServer) => {
       });
 
       // Handle QR code generation from gateway
-      socket.on('device-qr', (data: { deviceId: string; qr: string }) => {
+      socket.on('device-qr', async (data: { deviceId: string; qr: string }) => {
         console.log(`[Socket] Received QR code for device: ${data.deviceId}`);
-        // Broadcast to all dashboard clients
-        io?.to('dashboard').emit('device-qr', data);
+        try {
+          const device = await prisma.device.findUnique({ where: { id: data.deviceId }, select: { userId: true } });
+          if (!device) return;
+          emitToOwner(device.userId, 'device-qr', data);
+        } catch (err) {
+          console.error(`[Socket] Error resolving owner for device-qr ${data.deviceId}:`, err);
+        }
       });
 
       // Handle message status update from gateway
@@ -137,7 +146,13 @@ export const initSocket = (server: HTTPServer) => {
               data: { status: data.status, failedReason: data.failedReason || null },
             });
             if (warmerResult.count > 0) {
-              io?.to('dashboard').emit('warmer-log-status', { id: data.messageId, status: data.status });
+              const warmerLog = await prisma.warmerLog.findUnique({
+                where: { id: data.messageId },
+                include: { warmerSession: { select: { userId: true } } },
+              });
+              if (warmerLog) {
+                emitToOwner(warmerLog.warmerSession.userId, 'warmer-log-status', { id: data.messageId, status: data.status });
+              }
             } else {
               console.log(`[Socket] Ignored stale/out-of-order or unknown message status update: ${data.messageId} -> ${data.status}`);
             }
@@ -167,7 +182,7 @@ export const initSocket = (server: HTTPServer) => {
           }
 
           // Broadcast status update to dashboards
-          io?.to('dashboard').emit('message-status-update', {
+          emitToOwner(updatedMsg.device.userId, 'message-status-update', {
             id: updatedMsg.id,
             deviceId: updatedMsg.deviceId,
             status: updatedMsg.status,
@@ -180,7 +195,7 @@ export const initSocket = (server: HTTPServer) => {
           });
 
           // Trigger Webhooks for outbound message state changes
-          triggerWebhooks('message.status', {
+          triggerWebhooks(updatedMsg.device.userId, 'message.status', {
             messageId: updatedMsg.id,
             deviceId: updatedMsg.deviceId,
             status: updatedMsg.status,
@@ -215,14 +230,20 @@ export const initSocket = (server: HTTPServer) => {
             where: { id: data.deviceId }
           });
 
-          // Find or create contact
-          let contact = await prisma.contact.findUnique({
-            where: { phoneNumber: data.from },
+          if (!device) {
+            console.warn(`[Socket] Ignored incoming message for unknown/deleted device ${data.deviceId}`);
+            return;
+          }
+
+          // Find or create contact, scoped to the receiving device's owner
+          let contact = await prisma.contact.findFirst({
+            where: { userId: device.userId, phoneNumber: data.from },
           });
 
           if (!contact) {
             contact = await prisma.contact.create({
               data: {
+                userId: device.userId,
                 name: data.from, // fallback name
                 phoneNumber: data.from,
               },
@@ -242,7 +263,7 @@ export const initSocket = (server: HTTPServer) => {
           });
 
           // Broadcast new message to dashboard
-          io?.to('dashboard').emit('new-message', {
+          emitToOwner(device.userId, 'new-message', {
             id: msg.id,
             deviceId: msg.deviceId,
             direction: msg.direction,
@@ -253,7 +274,7 @@ export const initSocket = (server: HTTPServer) => {
           });
 
           // Trigger Webhooks
-          triggerWebhooks('message.in', {
+          triggerWebhooks(device.userId, 'message.in', {
             message: {
               id: msg.id,
               deviceId: msg.deviceId,
@@ -306,9 +327,22 @@ export const initSocket = (server: HTTPServer) => {
       });
 
     } else {
-      // Connects from dashboard client
-      console.log(`[Socket] Dashboard client connected: ${socket.id}`);
-      socket.join('dashboard');
+      // Connects from dashboard client - must present a valid JWT so we can
+      // scope real-time events to their own room (and admins to everyone's).
+      let decoded: { id: string; email: string; role: string };
+      try {
+        decoded = jwt.verify(token, JWT_SECRET) as { id: string; email: string; role: string };
+      } catch {
+        console.warn(`[Socket] Rejected dashboard connection with invalid/missing token: ${socket.id}`);
+        socket.disconnect();
+        return;
+      }
+
+      console.log(`[Socket] Dashboard client connected: ${socket.id} (user ${decoded.id})`);
+      socket.join(`user:${decoded.id}`);
+      if (decoded.role === 'admin') {
+        socket.join('admin');
+      }
       dashboardSockets.add(socket);
 
       socket.on('disconnect', () => {
@@ -349,19 +383,21 @@ export async function checkAndUpdateBroadcastStatus(broadcastId: string) {
 
     if (result.count === 0) return;
 
-    // Notify dashboard
-    io?.to('dashboard').emit('broadcast-status', {
+    const broadcast = await prisma.broadcast.findUnique({ where: { id: broadcastId }, select: { createdBy: true } });
+    if (!broadcast) return;
+
+    emitToOwner(broadcast.createdBy, 'broadcast-status', {
       broadcastId,
       status: hasFailed ? 'failed' : 'completed',
     });
   }
 }
 
-// Helper to trigger webhooks
-export async function triggerWebhooks(eventType: string, payload: any) {
+// Helper to trigger webhooks - scoped to the owning user's own webhooks only.
+export async function triggerWebhooks(userId: string, eventType: string, payload: any) {
   try {
     const webhooks = await prisma.webhook.findMany({
-      where: { isActive: true },
+      where: { isActive: true, userId },
     });
 
     for (const webhook of webhooks) {
@@ -430,10 +466,11 @@ export const sendLogoutDevice = (deviceId: string) => {
   return true;
 };
 
-// Emit an event to all connected dashboard clients (used by services outside
-// this module, e.g. warmer.service.ts, that don't have direct access to `io`).
-export const emitToDashboard = (event: string, payload: any) => {
-  io?.to('dashboard').emit(event, payload);
+// Emit an event to a resource owner's dashboard sockets and to every admin
+// (used both internally above and by services outside this module, e.g.
+// warmer.service.ts, that don't have direct access to `io`).
+export const emitToOwner = (userId: string, event: string, payload: any) => {
+  io?.to(`user:${userId}`).to('admin').emit(event, payload);
 };
 
 // Send message send directive to gateway

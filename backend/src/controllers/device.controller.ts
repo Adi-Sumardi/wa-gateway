@@ -9,6 +9,7 @@ export const listDevices = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   try {
     const devices = await prisma.device.findMany({
+      where: req.user.role === 'admin' ? {} : { userId: req.user.id },
       orderBy: { createdAt: 'desc' },
     });
     return res.json(devices);
@@ -50,9 +51,12 @@ export const createDevice = async (req: AuthenticatedRequest, res: Response) => 
 
 export const reconnectDevice = async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
-    const device = await prisma.device.findUnique({ where: { id } });
+    const device = await prisma.device.findFirst({
+      where: req.user.role === 'admin' ? { id } : { id, userId: req.user.id },
+    });
     if (!device) {
       return res.status(404).json({ error: 'Device not found' });
     }
@@ -78,9 +82,12 @@ export const reconnectDevice = async (req: AuthenticatedRequest, res: Response) 
 
 export const deleteDevice = async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
-    const device = await prisma.device.findUnique({ where: { id } });
+    const device = await prisma.device.findFirst({
+      where: req.user.role === 'admin' ? { id } : { id, userId: req.user.id },
+    });
     if (!device) {
       return res.status(404).json({ error: 'Device not found' });
     }
@@ -109,6 +116,13 @@ export const updateDeviceAi = async (req: AuthenticatedRequest, res: Response) =
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
+    const device = await prisma.device.findFirst({
+      where: req.user.role === 'admin' ? { id } : { id, userId: req.user.id },
+    });
+    if (!device) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+
     const updated = await prisma.device.update({
       where: { id },
       data: {

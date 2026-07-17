@@ -51,10 +51,10 @@ export const createBroadcast = async (params: {
     const formatted = formatPhoneNumber(rawNumber);
     const standardNumberOnly = formatted.replace('@c.us', '');
 
-    let contact = await prisma.contact.findUnique({ where: { phoneNumber: standardNumberOnly } });
+    let contact = await prisma.contact.findFirst({ where: { userId: params.userId, phoneNumber: standardNumberOnly } });
     if (!contact) {
       contact = await prisma.contact.create({
-        data: { name: standardNumberOnly, phoneNumber: standardNumberOnly },
+        data: { userId: params.userId, name: standardNumberOnly, phoneNumber: standardNumberOnly },
       });
     }
     if (contact.optedOut) continue;

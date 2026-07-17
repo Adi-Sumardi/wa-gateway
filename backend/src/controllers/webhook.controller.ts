@@ -5,8 +5,10 @@ import { AuthenticatedRequest } from '../middleware/auth.middleware';
 const prisma = new PrismaClient();
 
 export const listWebhooks = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   try {
     const webhooks = await prisma.webhook.findMany({
+      where: req.user.role === 'admin' ? {} : { userId: req.user.id },
       orderBy: { createdAt: 'desc' },
     });
     return res.json(webhooks);
@@ -18,6 +20,7 @@ export const listWebhooks = async (req: AuthenticatedRequest, res: Response) => 
 
 export const createWebhook = async (req: AuthenticatedRequest, res: Response) => {
   const { url, eventTypes } = req.body;
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   if (!url || !eventTypes || !Array.isArray(eventTypes)) {
     return res.status(400).json({ error: 'url (string) and eventTypes (array of strings) are required' });
@@ -26,6 +29,7 @@ export const createWebhook = async (req: AuthenticatedRequest, res: Response) =>
   try {
     const webhook = await prisma.webhook.create({
       data: {
+        userId: req.user.id,
         url,
         eventTypes,
         isActive: true,
@@ -40,8 +44,16 @@ export const createWebhook = async (req: AuthenticatedRequest, res: Response) =>
 
 export const deleteWebhook = async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
+    const webhook = await prisma.webhook.findFirst({
+      where: req.user.role === 'admin' ? { id } : { id, userId: req.user.id },
+    });
+    if (!webhook) {
+      return res.status(404).json({ error: 'Webhook not found' });
+    }
+
     await prisma.webhook.delete({ where: { id } });
     return res.json({ message: 'Webhook deleted successfully' });
   } catch (err) {
@@ -51,8 +63,10 @@ export const deleteWebhook = async (req: AuthenticatedRequest, res: Response) =>
 };
 
 export const getWebhookLogs = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   try {
     const logs = await prisma.webhookLog.findMany({
+      where: req.user.role === 'admin' ? {} : { webhook: { userId: req.user.id } },
       orderBy: { createdAt: 'desc' },
       take: 100,
       include: {

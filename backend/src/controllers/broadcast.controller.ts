@@ -53,6 +53,7 @@ export const listBroadcasts = async (req: Request, res: Response) => {
 
   try {
     const broadcasts = await prisma.broadcast.findMany({
+      where: authUser.role === 'admin' ? {} : { createdBy: authUser.id },
       orderBy: { createdAt: 'desc' },
       include: {
         device: { select: { label: true } },
@@ -99,7 +100,7 @@ export const getBroadcast = async (req: Request, res: Response) => {
 
   try {
     const broadcast = await prisma.broadcast.findFirst({
-      where: { id: req.params.id },
+      where: authUser.role === 'admin' ? { id: req.params.id } : { id: req.params.id, createdBy: authUser.id },
       include: {
         template: true,
         targets: { include: { contact: { select: { name: true, phoneNumber: true } } } },
@@ -117,7 +118,9 @@ export const startBroadcast = async (req: Request, res: Response) => {
   const authUser = (req as AuthenticatedRequest).user;
   if (!authUser) return res.status(401).json({ error: 'Unauthorized' });
 
-  const broadcast = await prisma.broadcast.findFirst({ where: { id: req.params.id } });
+  const broadcast = await prisma.broadcast.findFirst({
+    where: authUser.role === 'admin' ? { id: req.params.id } : { id: req.params.id, createdBy: authUser.id },
+  });
   if (!broadcast) return res.status(404).json({ error: 'Broadcast not found' });
 
   await broadcastService.startBroadcast(broadcast.id);
@@ -128,7 +131,9 @@ export const pauseBroadcast = async (req: Request, res: Response) => {
   const authUser = (req as AuthenticatedRequest).user;
   if (!authUser) return res.status(401).json({ error: 'Unauthorized' });
 
-  const broadcast = await prisma.broadcast.findFirst({ where: { id: req.params.id } });
+  const broadcast = await prisma.broadcast.findFirst({
+    where: authUser.role === 'admin' ? { id: req.params.id } : { id: req.params.id, createdBy: authUser.id },
+  });
   if (!broadcast) return res.status(404).json({ error: 'Broadcast not found' });
 
   await broadcastService.pauseBroadcast(broadcast.id);
@@ -139,7 +144,9 @@ export const deleteBroadcast = async (req: Request, res: Response) => {
   const authUser = (req as AuthenticatedRequest).user;
   if (!authUser) return res.status(401).json({ error: 'Unauthorized' });
 
-  const broadcast = await prisma.broadcast.findFirst({ where: { id: req.params.id } });
+  const broadcast = await prisma.broadcast.findFirst({
+    where: authUser.role === 'admin' ? { id: req.params.id } : { id: req.params.id, createdBy: authUser.id },
+  });
   if (!broadcast) return res.status(404).json({ error: 'Broadcast not found' });
 
   await broadcastService.pauseBroadcast(broadcast.id).catch(() => undefined);

@@ -222,7 +222,7 @@ export default function App() {
 
   const initSocket = () => {
     if (socketRef.current) socketRef.current.disconnect();
-    const socket = io(BACKEND_URL, { auth: { type: 'dashboard' } });
+    const socket = io(BACKEND_URL, { auth: { type: 'dashboard', token } });
     socketRef.current = socket;
 
     socket.on('device-status', (data: { deviceId: string; status: Device['status']; phoneNumber?: string }) => {

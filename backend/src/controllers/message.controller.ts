@@ -62,14 +62,15 @@ export const sendMessage = async (req: Request, res: Response) => {
     const formattedRecipient = formatPhoneNumber(to);
     const standardNumberOnly = formattedRecipient.replace('@c.us', '');
 
-    // 3. Find or create Contact
-    let contact = await prisma.contact.findUnique({
-      where: { phoneNumber: standardNumberOnly },
+    // 3. Find or create Contact (scoped to this user's own phonebook)
+    let contact = await prisma.contact.findFirst({
+      where: { userId: authUser.id, phoneNumber: standardNumberOnly },
     });
 
     if (!contact) {
       contact = await prisma.contact.create({
         data: {
+          userId: authUser.id,
           name: standardNumberOnly,
           phoneNumber: standardNumberOnly,
         },
@@ -136,11 +137,7 @@ export const getMessages = async (req: Request, res: Response) => {
 
   try {
     const messages = await prisma.message.findMany({
-      where: {
-        device: {
-          userId: authUser.id
-        }
-      },
+      where: authUser.role === 'admin' ? {} : { device: { userId: authUser.id } },
       orderBy: { createdAt: 'desc' },
       take: 100,
       include: {
