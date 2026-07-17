@@ -16,6 +16,24 @@
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <script>
+      // If the browser (or an intermediate cache) served a stale index.html
+      // pointing at a JS bundle hash that a newer deploy already removed, the
+      // module script fails to load. Recover automatically with one hard
+      // reload instead of leaving the user on a blank page.
+      (function () {
+        var RELOAD_FLAG = 'sendago-stale-bundle-reload';
+        window.addEventListener('error', function (event) {
+          var target = event.target;
+          if (target && target.tagName === 'SCRIPT' && target.getAttribute('type') === 'module') {
+            if (!sessionStorage.getItem(RELOAD_FLAG)) {
+              sessionStorage.setItem(RELOAD_FLAG, '1');
+              location.reload();
+            }
+          }
+        }, true);
+      })();
+    </script>
   </head>
   <body class="bg-background text-on-surface">
     <div id="root"></div>
