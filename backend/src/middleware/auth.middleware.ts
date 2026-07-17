@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import * as jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Role } from '@prisma/client';
 import * as crypto from 'crypto';
+import { hasPermission } from '../services/permission.service';
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'sendago-super-secret-jwt-key';
@@ -41,6 +42,25 @@ export const requireRole = (roles: string[]) => {
       return res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
     }
     next();
+  };
+};
+
+// Middleware to check a granular permission for the caller's role
+export const requirePermission = (key: string) => {
+  return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    try {
+      const granted = await hasPermission(req.user.role as Role, key);
+      if (!granted) {
+        return res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
+      }
+      next();
+    } catch (err) {
+      console.error('Permission check error:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
   };
 };
 

@@ -1,7 +1,68 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Role } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
+
+const PERMISSIONS: { key: string; label: string; category: string }[] = [
+  { key: 'devices.view', label: 'View devices', category: 'Devices' },
+  { key: 'devices.manage', label: 'Manage devices (create/delete/reconnect)', category: 'Devices' },
+  { key: 'messages.view', label: 'View messages', category: 'Messages' },
+  { key: 'messages.send', label: 'Send messages', category: 'Messages' },
+  { key: 'broadcast.view', label: 'View broadcasts', category: 'Broadcast' },
+  { key: 'broadcast.manage', label: 'Manage broadcasts', category: 'Broadcast' },
+  { key: 'warmer.view', label: 'View WA Warmer sessions', category: 'WA Warmer' },
+  { key: 'warmer.manage', label: 'Manage WA Warmer sessions', category: 'WA Warmer' },
+  { key: 'webhooks.manage', label: 'Manage webhooks', category: 'Settings' },
+  { key: 'apikeys.manage', label: 'Manage API keys', category: 'Settings' },
+  { key: 'links.manage', label: 'Manage link shortener', category: 'Settings' },
+  { key: 'settings.view', label: 'View API & Settings page', category: 'Settings' },
+  { key: 'users.manage', label: 'Manage users, roles & permissions', category: 'Users' },
+];
+
+// operator/viewer defaults; admin is always fully granted regardless of this table
+const DEFAULT_GRANTS: Record<Exclude<Role, 'admin'>, string[]> = {
+  operator: [
+    'devices.view', 'devices.manage',
+    'messages.view', 'messages.send',
+    'broadcast.view', 'broadcast.manage',
+    'warmer.view', 'warmer.manage',
+    'links.manage',
+    'settings.view',
+  ],
+  viewer: [
+    'devices.view',
+    'messages.view',
+    'broadcast.view',
+    'warmer.view',
+    'settings.view',
+  ],
+};
+
+async function seedPermissions() {
+  for (const perm of PERMISSIONS) {
+    await prisma.permission.upsert({
+      where: { key: perm.key },
+      update: { label: perm.label, category: perm.category },
+      create: perm,
+    });
+  }
+
+  for (const [role, keys] of Object.entries(DEFAULT_GRANTS) as [Exclude<Role, 'admin'>, string[]][]) {
+    for (const perm of PERMISSIONS) {
+      const exists = await prisma.rolePermission.findUnique({
+        where: { role_permissionKey: { role: role as Role, permissionKey: perm.key } },
+      });
+      // Only seed if this (role, permission) pair has never been set before,
+      // so re-running the seed doesn't clobber an admin's later customization.
+      if (!exists) {
+        await prisma.rolePermission.create({
+          data: { role: role as Role, permissionKey: perm.key, granted: keys.includes(perm.key) },
+        });
+      }
+    }
+  }
+  console.log('Seeded permissions and default role grants.');
+}
 
 async function main() {
   // Check if admin user exists
@@ -24,6 +85,8 @@ async function main() {
   } else {
     console.log('Admin user already exists, skipping seed.');
   }
+
+  await seedPermissions();
 }
 
 main()

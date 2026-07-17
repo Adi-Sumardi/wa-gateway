@@ -9,7 +9,6 @@ export const listDevices = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   try {
     const devices = await prisma.device.findMany({
-      where: { userId: req.user.id },
       orderBy: { createdAt: 'desc' },
     });
     return res.json(devices);
@@ -111,7 +110,7 @@ export const updateDeviceAi = async (req: AuthenticatedRequest, res: Response) =
 
   try {
     const updated = await prisma.device.update({
-      where: { id, userId: req.user.id },
+      where: { id },
       data: {
         aiEnabled: aiEnabled !== undefined ? aiEnabled : undefined,
         aiContext: aiContext !== undefined ? aiContext : undefined,

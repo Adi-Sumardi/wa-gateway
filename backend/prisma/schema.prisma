@@ -270,6 +270,25 @@ model WebhookLog {
   @@map("webhook_logs")
 }
 
+model Permission {
+  key             String           @id
+  label           String
+  category        String
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  role           Role
+  permissionKey  String     @map("permission_key")
+  granted        Boolean    @default(false)
+  permission     Permission @relation(fields: [permissionKey], references: [key], onDelete: Cascade)
+
+  @@id([role, permissionKey])
+  @@map("role_permissions")
+}
+
 model AuditLog {
   id        String   @id @default(uuid()) @db.Uuid
   userId    String   @db.Uuid @map("user_id")

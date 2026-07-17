@@ -16,11 +16,11 @@ export const createWarmer = async (req: Request, res: Response) => {
   }
 
   try {
-    const ownedDevices = await prisma.device.findMany({
-      where: { id: { in: deviceIds }, userId: authUser.id },
+    const existingDevices = await prisma.device.findMany({
+      where: { id: { in: deviceIds } },
     });
-    if (ownedDevices.length !== deviceIds.length) {
-      return res.status(400).json({ error: 'One or more selected devices do not belong to you' });
+    if (existingDevices.length !== deviceIds.length) {
+      return res.status(400).json({ error: 'One or more selected devices were not found' });
     }
 
     const session = await prisma.warmerSession.create({
@@ -50,7 +50,6 @@ export const listWarmers = async (req: Request, res: Response) => {
 
   try {
     const sessions = await prisma.warmerSession.findMany({
-      where: { userId: authUser.id },
       orderBy: { createdAt: 'desc' },
       include: {
         devices: { include: { device: { select: { id: true, label: true, status: true } } } },
@@ -68,7 +67,7 @@ export const getWarmerLogs = async (req: Request, res: Response) => {
   const authUser = (req as AuthenticatedRequest).user;
   if (!authUser) return res.status(401).json({ error: 'Unauthorized' });
 
-  const session = await prisma.warmerSession.findFirst({ where: { id: req.params.id, userId: authUser.id } });
+  const session = await prisma.warmerSession.findFirst({ where: { id: req.params.id } });
   if (!session) return res.status(404).json({ error: 'Warmer session not found' });
 
   const logs = await prisma.warmerLog.findMany({
@@ -83,7 +82,7 @@ export const startWarmer = async (req: Request, res: Response) => {
   const authUser = (req as AuthenticatedRequest).user;
   if (!authUser) return res.status(401).json({ error: 'Unauthorized' });
 
-  const session = await prisma.warmerSession.findFirst({ where: { id: req.params.id, userId: authUser.id } });
+  const session = await prisma.warmerSession.findFirst({ where: { id: req.params.id } });
   if (!session) return res.status(404).json({ error: 'Warmer session not found' });
 
   await warmerService.startWarmer(session.id);
@@ -94,7 +93,7 @@ export const pauseWarmer = async (req: Request, res: Response) => {
   const authUser = (req as AuthenticatedRequest).user;
   if (!authUser) return res.status(401).json({ error: 'Unauthorized' });
 
-  const session = await prisma.warmerSession.findFirst({ where: { id: req.params.id, userId: authUser.id } });
+  const session = await prisma.warmerSession.findFirst({ where: { id: req.params.id } });
   if (!session) return res.status(404).json({ error: 'Warmer session not found' });
 
   await warmerService.pauseWarmer(session.id);
@@ -105,7 +104,7 @@ export const deleteWarmer = async (req: Request, res: Response) => {
   const authUser = (req as AuthenticatedRequest).user;
   if (!authUser) return res.status(401).json({ error: 'Unauthorized' });
 
-  const session = await prisma.warmerSession.findFirst({ where: { id: req.params.id, userId: authUser.id } });
+  const session = await prisma.warmerSession.findFirst({ where: { id: req.params.id } });
   if (!session) return res.status(404).json({ error: 'Warmer session not found' });
 
   await warmerService.pauseWarmer(session.id).catch(() => undefined);

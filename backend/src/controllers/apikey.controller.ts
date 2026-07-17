@@ -70,8 +70,18 @@ export const createKey = async (req: AuthenticatedRequest, res: Response) => {
 
 export const deleteKey = async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
+    // API keys are personal credentials, not team-shared: only the owner or an
+    // admin can revoke a given key.
+    const key = await prisma.apiKey.findFirst({
+      where: req.user.role === 'admin' ? { id } : { id, userId: req.user.id },
+    });
+    if (!key) {
+      return res.status(404).json({ error: 'API key not found' });
+    }
+
     await prisma.apiKey.delete({ where: { id } });
     return res.json({ message: 'API Key revoked and deleted successfully' });
   } catch (err) {

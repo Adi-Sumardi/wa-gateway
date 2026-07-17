@@ -27,10 +27,12 @@ import {
   Sparkles,
   Link2,
   Radio,
-  Flame
+  Flame,
+  Users
 } from 'lucide-react';
 import BroadcastPage from './pages/BroadcastPage';
 import WarmerPage from './pages/WarmerPage';
+import UsersRolesPage from './pages/UsersRolesPage';
 
 const BACKEND_URL = (import.meta as any).env?.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:5001`;
 
@@ -100,7 +102,9 @@ export default function App() {
   const [showPassword, setShowPassword] = useState(false);
 
   // Navigation & Data state
-  const [activeTab, setActiveTab] = useState<'overview' | 'devices' | 'messages' | 'broadcast' | 'warmer' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'devices' | 'messages' | 'broadcast' | 'warmer' | 'settings' | 'users'>('overview');
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const hasPermission = (key: string) => permissions.includes(key);
   const [activeDocLanguage, setActiveDocLanguage] = useState<'curl' | 'nodejs' | 'python' | 'php'>('curl');
   const [aiContexts, setAiContexts] = useState<Record<string, string>>({});
   const [links, setLinks] = useState<{ id: string; code: string; originalUrl: string; shortUrl: string; clicks: number; lastClickedAt: string | null; createdAt: string }[]>([]);
@@ -180,9 +184,19 @@ export default function App() {
     localStorage.removeItem('token');
     setToken(null);
     setUser(null);
+    setPermissions([]);
     if (socketRef.current) {
       socketRef.current.disconnect();
       socketRef.current = null;
+    }
+  };
+
+  const loadPermissions = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/permissions/me`, { headers: getHeaders() });
+      if (res.ok) setPermissions((await res.json()).permissions);
+    } catch (err) {
+      console.error('Failed to load permissions:', err);
     }
   };
 
@@ -199,6 +213,7 @@ export default function App() {
         .then(data => {
           setUser(data);
           loadData();
+          loadPermissions();
           initSocket();
         })
         .catch(() => handleLogout());
@@ -665,17 +680,28 @@ export default function App() {
             <Settings className="w-5 h-5" />
             <span className="text-sm">API & Settings</span>
           </button>
+          {user.role === 'admin' && (
+            <button
+              onClick={() => { setActiveTab('users'); setIsSidebarOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-semibold ${activeTab === 'users' ? 'bg-primary-container text-on-primary-container sidebar-active-pill' : 'text-on-surface-variant hover:bg-surface-container-high hover:text-primary'}`}
+            >
+              <Users className="w-5 h-5" />
+              <span className="text-sm">Users & Roles</span>
+            </button>
+          )}
         </nav>
 
         <div className="px-3 space-y-4">
-          <button 
-            onClick={() => setShowAddDeviceModal(true)}
-            className="w-full bg-primary text-on-primary font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-md"
-          >
-            <Plus className="w-5 h-5" />
-            <span className="text-xs uppercase tracking-wider">Connect Device</span>
-          </button>
-          
+          {hasPermission('devices.manage') && (
+            <button
+              onClick={() => setShowAddDeviceModal(true)}
+              className="w-full bg-primary text-on-primary font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-md"
+            >
+              <Plus className="w-5 h-5" />
+              <span className="text-xs uppercase tracking-wider">Connect Device</span>
+            </button>
+          )}
+
           <div className="h-px bg-outline-variant mx-4"></div>
           
           <div className="flex items-center gap-3 px-4 py-2">
@@ -878,13 +904,15 @@ export default function App() {
                   <h2 className="text-3xl font-bold text-on-surface font-headline-lg">Device Management</h2>
                   <p className="text-on-surface-variant text-sm mt-1">Add and scan sessions to connect WhatsApp numbers</p>
                 </div>
-                <button 
-                  onClick={() => setShowAddDeviceModal(true)}
-                  className="bg-primary text-on-primary font-bold py-2.5 px-4 rounded-xl flex items-center gap-2 hover:opacity-90"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span>Connect Device</span>
-                </button>
+                {hasPermission('devices.manage') && (
+                  <button
+                    onClick={() => setShowAddDeviceModal(true)}
+                    className="bg-primary text-on-primary font-bold py-2.5 px-4 rounded-xl flex items-center gap-2 hover:opacity-90"
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span>Connect Device</span>
+                  </button>
+                )}
               </div>
 
               {devices.length === 0 ? (
@@ -979,24 +1007,26 @@ export default function App() {
                           )}
                         </div>
 
-                        <div className="flex gap-2 border-t border-outline-variant/30 pt-4 mt-auto">
-                          {dev.status !== 'connected' && dev.status !== 'connecting' && (
-                            <button 
-                              onClick={() => reconnectDevice(dev.id)}
-                              className="flex-1 bg-primary text-on-primary py-2 rounded-xl text-xs font-bold hover:opacity-90 flex items-center justify-center gap-1.5"
+                        {hasPermission('devices.manage') && (
+                          <div className="flex gap-2 border-t border-outline-variant/30 pt-4 mt-auto">
+                            {dev.status !== 'connected' && dev.status !== 'connecting' && (
+                              <button
+                                onClick={() => reconnectDevice(dev.id)}
+                                className="flex-1 bg-primary text-on-primary py-2 rounded-xl text-xs font-bold hover:opacity-90 flex items-center justify-center gap-1.5"
+                              >
+                                <RefreshCw className="w-4 h-4" />
+                                Initialize
+                              </button>
+                            )}
+                            <button
+                              onClick={() => deleteDevice(dev.id)}
+                              className="px-3 bg-error-container text-error rounded-xl hover:opacity-90 text-xs font-bold flex items-center justify-center gap-1 py-2"
                             >
-                              <RefreshCw className="w-4 h-4" />
-                              Initialize
+                              <Trash2 className="w-4 h-4" />
+                              <span>Delete</span>
                             </button>
-                          )}
-                          <button 
-                            onClick={() => deleteDevice(dev.id)}
-                            className="px-3 bg-error-container text-error rounded-xl hover:opacity-90 text-xs font-bold flex items-center justify-center gap-1 py-2"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            <span>Delete</span>
-                          </button>
-                        </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1163,6 +1193,16 @@ export default function App() {
               devices={devices}
               socket={socketRef.current}
               addToast={addToast}
+            />
+          )}
+
+          {activeTab === 'users' && user.role === 'admin' && (
+            <UsersRolesPage
+              backendUrl={BACKEND_URL}
+              getHeaders={getHeaders}
+              addToast={addToast}
+              currentUserId={user.id}
+              setConfirmDialog={setConfirmDialog}
             />
           )}
 

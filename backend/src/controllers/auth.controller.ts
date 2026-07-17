@@ -46,44 +46,6 @@ export const login = async (req: AuthenticatedRequest, res: Response) => {
   }
 };
 
-export const register = async (req: AuthenticatedRequest, res: Response) => {
-  const { name, email, password, role } = req.body;
-
-  if (!name || !email || !password) {
-    return res.status(400).json({ error: 'Name, email, and password are required' });
-  }
-
-  try {
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
-      return res.status(400).json({ error: 'Email already registered' });
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        passwordHash,
-        role: role || 'operator',
-      },
-    });
-
-    return res.status(201).json({
-      message: 'User registered successfully',
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    });
-  } catch (err) {
-    console.error('Registration error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
 export const me = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
     return res.status(401).json({ error: 'Unauthorized' });
