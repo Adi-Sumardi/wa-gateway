@@ -10,4 +10,4 @@ COPY . .
 RUN npx prisma generate
 RUN npm run build
 EXPOSE 5001
-CMD ["sh", "-c", "npx prisma db push && npm run start"]
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && npm run start"]
