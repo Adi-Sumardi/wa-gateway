@@ -56,16 +56,26 @@ export const createUser = async (req: AuthenticatedRequest, res: Response) => {
 export const updateUser = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { id } = req.params;
-  const { name, role, isActive } = req.body;
+  const { name, email, password, role, isActive } = req.body;
 
   if (role && !['admin', 'operator', 'viewer'].includes(role)) {
     return res.status(400).json({ error: 'Invalid role' });
+  }
+  if (password !== undefined && password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
   }
 
   try {
     const target = await prisma.user.findUnique({ where: { id } });
     if (!target) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (email !== undefined && email !== target.email) {
+      const existing = await prisma.user.findUnique({ where: { email } });
+      if (existing) {
+        return res.status(400).json({ error: 'Email already in use' });
+      }
     }
 
     const losingAdmin = target.role === 'admin' && ((role && role !== 'admin') || isActive === false);
@@ -78,15 +88,23 @@ export const updateUser = async (req: AuthenticatedRequest, res: Response) => {
       }
     }
 
+    const passwordHash = password !== undefined ? await bcrypt.hash(password, 10) : undefined;
+
     const updated = await prisma.user.update({
       where: { id },
       data: {
         name: name !== undefined ? name : undefined,
+        email: email !== undefined ? email : undefined,
+        passwordHash,
         role: role !== undefined ? role : undefined,
         isActive: isActive !== undefined ? isActive : undefined,
       },
       select: USER_SELECT,
     });
+
+    if (email !== undefined || password !== undefined) {
+      logAudit(req.user.id, 'user.credentials', `Updated credentials for user "${target.email}"${email !== undefined ? ` (new email: ${email})` : ''}`);
+    }
 
     if (role !== undefined || isActive !== undefined) {
       logAudit(

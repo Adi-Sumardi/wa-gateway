@@ -51,6 +51,11 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
   const [submitting, setSubmitting] = useState(false);
   const [savingMatrix, setSavingMatrix] = useState(false);
 
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editEmail, setEditEmail] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [savingCredentials, setSavingCredentials] = useState(false);
+
   const fetchUsers = async () => {
     try {
       const res = await fetch(`${backendUrl}/api/users`, { headers: getHeaders() });
@@ -130,6 +135,41 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
       addToast('User updated', 'success');
     } catch (err: any) {
       addToast(err.message || 'Failed to update user', 'error');
+    }
+  };
+
+  const openEditCredentials = (u: UserRow) => {
+    setEditingUserId(u.id);
+    setEditEmail(u.email);
+    setEditPassword('');
+  };
+
+  const saveCredentials = async (id: string) => {
+    if (!editEmail) {
+      addToast('Email is required', 'error');
+      return;
+    }
+    if (editPassword && editPassword.length < 6) {
+      addToast('Password must be at least 6 characters', 'error');
+      return;
+    }
+    setSavingCredentials(true);
+    try {
+      const res = await fetch(`${backendUrl}/api/users/${id}`, {
+        method: 'PATCH',
+        headers: getHeaders(),
+        body: JSON.stringify({ email: editEmail, password: editPassword || undefined }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed to update credentials');
+      setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...result } : u)));
+      addToast('Credentials updated', 'success');
+      setEditingUserId(null);
+      setEditPassword('');
+    } catch (err: any) {
+      addToast(err.message || 'Failed to update credentials', 'error');
+    } finally {
+      setSavingCredentials(false);
     }
   };
 
@@ -253,7 +293,8 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
             </thead>
             <tbody className="divide-y divide-outline-variant/20 font-medium">
               {users.map((u) => (
-                <tr key={u.id} className="hover:bg-surface-container-lowest transition-colors">
+                <React.Fragment key={u.id}>
+                <tr className="hover:bg-surface-container-lowest transition-colors">
                   <td className="py-3.5 px-4">
                     {u.name}
                     {u.id === currentUserId && <span className="text-on-surface-variant"> (you)</span>}
@@ -278,7 +319,13 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
                       {u.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
-                  <td className="py-3.5 px-4">
+                  <td className="py-3.5 px-4 flex gap-2">
+                    <button
+                      onClick={() => (editingUserId === u.id ? setEditingUserId(null) : openEditCredentials(u))}
+                      className="px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase bg-primary-container text-on-primary-container"
+                    >
+                      {editingUserId === u.id ? 'Close' : 'Edit'}
+                    </button>
                     <button
                       onClick={() => handleToggleActive(u)}
                       disabled={u.id === currentUserId}
@@ -288,6 +335,36 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
                     </button>
                   </td>
                 </tr>
+                {editingUserId === u.id && (
+                  <tr>
+                    <td colSpan={5} className="p-4 bg-surface-container-lowest">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <input
+                          value={editEmail}
+                          onChange={(e) => setEditEmail(e.target.value)}
+                          placeholder="Email"
+                          type="email"
+                          className="w-full px-3 py-2.5 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
+                        />
+                        <input
+                          value={editPassword}
+                          onChange={(e) => setEditPassword(e.target.value)}
+                          placeholder="New password (leave blank to keep current)"
+                          type="password"
+                          className="w-full px-3 py-2.5 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
+                        />
+                        <button
+                          onClick={() => saveCredentials(u.id)}
+                          disabled={savingCredentials}
+                          className="bg-primary text-on-primary py-2.5 rounded-xl font-bold disabled:opacity-50"
+                        >
+                          {savingCredentials ? 'Saving...' : 'Save Credentials'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
               ))}
               {users.length === 0 && (
                 <tr>
