@@ -74,6 +74,13 @@ model Device {
   createdAt       DateTime     @default(now()) @map("created_at")
   aiEnabled       Boolean      @default(false) @map("ai_enabled")
   aiContext       String?      @db.Text @map("ai_context")
+  // Structured resources the AI auto-reply can reference/attach - kept
+  // separate from the freeform aiContext so the backend can act on them
+  // deterministically (e.g. auto-attach the brochure image) instead of
+  // relying on the LLM to remember to mention them.
+  aiWebsiteUrl    String?      @map("ai_website_url")
+  aiBrochureUrl   String?      @map("ai_brochure_url")
+  aiPriceList     String?      @db.Text @map("ai_price_list")
   user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages        Message[]
   broadcasts      Broadcast[]

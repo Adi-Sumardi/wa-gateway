@@ -110,10 +110,10 @@ export const deleteDevice = async (req: AuthenticatedRequest, res: Response) => 
 
 export const updateDeviceAi = async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  const { aiEnabled, aiContext } = req.body;
+  const { aiEnabled, aiContext, aiWebsiteUrl, aiBrochureUrl, aiPriceList } = req.body;
 
-  if (aiEnabled === undefined && aiContext === undefined) {
-    return res.status(400).json({ error: 'Parameters "aiEnabled" or "aiContext" are required' });
+  if ([aiEnabled, aiContext, aiWebsiteUrl, aiBrochureUrl, aiPriceList].every((v) => v === undefined)) {
+    return res.status(400).json({ error: 'At least one AI configuration field is required' });
   }
 
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
@@ -131,6 +131,9 @@ export const updateDeviceAi = async (req: AuthenticatedRequest, res: Response) =
       data: {
         aiEnabled: aiEnabled !== undefined ? aiEnabled : undefined,
         aiContext: aiContext !== undefined ? aiContext : undefined,
+        aiWebsiteUrl: aiWebsiteUrl !== undefined ? (aiWebsiteUrl || null) : undefined,
+        aiBrochureUrl: aiBrochureUrl !== undefined ? (aiBrochureUrl || null) : undefined,
+        aiPriceList: aiPriceList !== undefined ? (aiPriceList || null) : undefined,
       },
     });
 

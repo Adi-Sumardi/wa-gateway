@@ -236,11 +236,12 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
         <h3 className="font-bold text-sm flex items-center gap-2">
           <UserPlus className="w-5 h-5" /> Add Team Member
         </h3>
-        <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+        <form onSubmit={handleCreateUser} autoComplete="off" className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Name"
+            autoComplete="off"
             className="w-full px-3 py-3 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
           />
           <input
@@ -248,6 +249,8 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email"
             type="email"
+            autoComplete="off"
+            name="new-member-email"
             className="w-full px-3 py-3 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
           />
           <input
@@ -255,6 +258,8 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password"
             type="password"
+            autoComplete="new-password"
+            name="new-member-password"
             className="w-full px-3 py-3 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
           />
           <select
@@ -344,6 +349,8 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
                           onChange={(e) => setEditEmail(e.target.value)}
                           placeholder="Email"
                           type="email"
+                          autoComplete="off"
+                          name={`edit-email-${u.id}`}
                           className="w-full px-3 py-2.5 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
                         />
                         <input
@@ -351,6 +358,8 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
                           onChange={(e) => setEditPassword(e.target.value)}
                           placeholder="New password (leave blank to keep current)"
                           type="password"
+                          autoComplete="new-password"
+                          name={`edit-password-${u.id}`}
                           className="w-full px-3 py-2.5 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
                         />
                         <button

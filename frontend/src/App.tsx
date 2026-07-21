@@ -54,6 +54,9 @@ interface Device {
   lastConnectedAt: string | null;
   aiEnabled?: boolean;
   aiContext?: string | null;
+  aiWebsiteUrl?: string | null;
+  aiBrochureUrl?: string | null;
+  aiPriceList?: string | null;
 }
 
 interface MessageLog {
@@ -110,6 +113,9 @@ export default function App() {
   const hasPermission = (key: string) => permissions.includes(key);
   const [activeDocLanguage, setActiveDocLanguage] = useState<'curl' | 'nodejs' | 'python' | 'php'>('curl');
   const [aiContexts, setAiContexts] = useState<Record<string, string>>({});
+  const [aiWebsiteUrls, setAiWebsiteUrls] = useState<Record<string, string>>({});
+  const [aiBrochureUrls, setAiBrochureUrls] = useState<Record<string, string>>({});
+  const [aiPriceLists, setAiPriceLists] = useState<Record<string, string>>({});
   const [links, setLinks] = useState<{ id: string; code: string; originalUrl: string; shortUrl: string; clicks: number; lastClickedAt: string | null; createdAt: string }[]>([]);
   const [newOriginalUrl, setNewOriginalUrl] = useState('');
   const [devices, setDevices] = useState<Device[]>([]);
@@ -371,17 +377,24 @@ export default function App() {
   };
 
   // Device AI configurations
-  const updateDeviceAiConfig = async (id: string, aiEnabled: boolean, aiContext: string) => {
+  const updateDeviceAiConfig = async (id: string, fields: Partial<Pick<Device, 'aiEnabled' | 'aiContext' | 'aiWebsiteUrl' | 'aiBrochureUrl' | 'aiPriceList'>>) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/devices/${id}/ai`, {
         method: 'PATCH',
         headers: getHeaders(),
-        body: JSON.stringify({ aiEnabled, aiContext }),
+        body: JSON.stringify(fields),
       });
 
       if (res.ok) {
         const updated = await res.json();
-        setDevices(prev => prev.map(d => d.id === id ? { ...d, aiEnabled: updated.aiEnabled, aiContext: updated.aiContext } : d));
+        setDevices(prev => prev.map(d => d.id === id ? {
+          ...d,
+          aiEnabled: updated.aiEnabled,
+          aiContext: updated.aiContext,
+          aiWebsiteUrl: updated.aiWebsiteUrl,
+          aiBrochureUrl: updated.aiBrochureUrl,
+          aiPriceList: updated.aiPriceList,
+        } : d));
         addToast('Device AI settings updated successfully!', 'success');
       } else {
         const error = await res.json();
@@ -1012,16 +1025,16 @@ export default function App() {
                               AI Auto-Reply Bot
                             </h4>
                             <label className="relative inline-flex items-center cursor-pointer scale-90">
-                              <input 
-                                type="checkbox" 
-                                checked={dev.aiEnabled || false} 
-                                onChange={(e) => updateDeviceAiConfig(dev.id, e.target.checked, dev.aiContext || '')}
+                              <input
+                                type="checkbox"
+                                checked={dev.aiEnabled || false}
+                                onChange={(e) => updateDeviceAiConfig(dev.id, { aiEnabled: e.target.checked })}
                                 className="sr-only peer"
                               />
                               <div className="w-9 h-5 bg-zinc-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
                             </label>
                           </div>
-                          
+
                           {dev.aiEnabled && (
                             <div className="space-y-2 animate-fade-in text-xs text-left">
                               <label className="text-[10px] font-bold text-on-surface-variant">System Instructions / Context</label>
@@ -1033,8 +1046,41 @@ export default function App() {
                                 }}
                                 className="w-full bg-surface-container-low border border-outline-variant rounded-lg p-2 text-xs outline-none focus:border-primary resize-y min-h-[60px]"
                               />
+
+                              <label className="text-[10px] font-bold text-on-surface-variant">Website / Link Pendaftaran (opsional)</label>
+                              <input
+                                type="url"
+                                placeholder="https://pendaftaran.sekolah.sch.id"
+                                value={aiWebsiteUrls[dev.id] !== undefined ? aiWebsiteUrls[dev.id] : (dev.aiWebsiteUrl || '')}
+                                onChange={(e) => setAiWebsiteUrls(prev => ({ ...prev, [dev.id]: e.target.value }))}
+                                className="w-full bg-surface-container-low border border-outline-variant rounded-lg p-2 text-xs outline-none focus:border-primary"
+                              />
+
+                              <label className="text-[10px] font-bold text-on-surface-variant">URL Brosur / Gambar (opsional - otomatis dikirim jika ditanya "brosur/katalog")</label>
+                              <input
+                                type="url"
+                                placeholder="https://domain.com/brosur.jpg"
+                                value={aiBrochureUrls[dev.id] !== undefined ? aiBrochureUrls[dev.id] : (dev.aiBrochureUrl || '')}
+                                onChange={(e) => setAiBrochureUrls(prev => ({ ...prev, [dev.id]: e.target.value }))}
+                                className="w-full bg-surface-container-low border border-outline-variant rounded-lg p-2 text-xs outline-none focus:border-primary"
+                              />
+
+                              <label className="text-[10px] font-bold text-on-surface-variant">Daftar Harga / Varian (opsional)</label>
+                              <textarea
+                                placeholder={'TK: Rp 500.000/bulan\nSD: Rp 750.000/bulan'}
+                                value={aiPriceLists[dev.id] !== undefined ? aiPriceLists[dev.id] : (dev.aiPriceList || '')}
+                                onChange={(e) => setAiPriceLists(prev => ({ ...prev, [dev.id]: e.target.value }))}
+                                className="w-full bg-surface-container-low border border-outline-variant rounded-lg p-2 text-xs outline-none focus:border-primary resize-y min-h-[50px]"
+                              />
+
                               <button
-                                onClick={() => updateDeviceAiConfig(dev.id, dev.aiEnabled || false, aiContexts[dev.id] || dev.aiContext || '')}
+                                onClick={() => updateDeviceAiConfig(dev.id, {
+                                  aiEnabled: dev.aiEnabled || false,
+                                  aiContext: aiContexts[dev.id] !== undefined ? aiContexts[dev.id] : (dev.aiContext || ''),
+                                  aiWebsiteUrl: aiWebsiteUrls[dev.id] !== undefined ? aiWebsiteUrls[dev.id] : (dev.aiWebsiteUrl || ''),
+                                  aiBrochureUrl: aiBrochureUrls[dev.id] !== undefined ? aiBrochureUrls[dev.id] : (dev.aiBrochureUrl || ''),
+                                  aiPriceList: aiPriceLists[dev.id] !== undefined ? aiPriceLists[dev.id] : (dev.aiPriceList || ''),
+                                })}
                                 className="w-full bg-primary text-on-primary font-bold py-1.5 rounded-lg text-[10px] hover:opacity-90 active:scale-95 transition-all"
                               >
                                 Save AI Context

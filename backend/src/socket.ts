@@ -1,11 +1,30 @@
 import { Server as SocketServer, Socket } from 'socket.io';
 import { Server as HTTPServer } from 'http';
-import { PrismaClient, DeviceStatus, MessageStatus } from '@prisma/client';
+import { PrismaClient, Device, DeviceStatus, MessageStatus } from '@prisma/client';
 import * as jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
 const GATEWAY_TOKEN = process.env.GATEWAY_TOKEN || 'sendago-gateway-secret-token';
 const JWT_SECRET = process.env.JWT_SECRET || 'sendago-super-secret-jwt-key';
+
+// Matches common ways a customer might ask for the brochure/catalog, so the
+// image can be attached deterministically instead of depending on the LLM
+// remembering to mention it.
+const BROCHURE_KEYWORDS = /brosur|brochure|katalog|catalog|pamflet|flyer/i;
+
+// Folds the device's structured AI resources (website, price list) into the
+// freeform aiContext so the model can naturally reference them in its reply.
+function buildAiContext(device: Pick<Device, 'aiContext' | 'aiWebsiteUrl' | 'aiPriceList'>): string | undefined {
+  const parts: string[] = [];
+  if (device.aiContext) parts.push(device.aiContext);
+  if (device.aiWebsiteUrl) {
+    parts.push(`Website/link pendaftaran resmi: ${device.aiWebsiteUrl}. Sertakan link ini apabila pengguna menanyakan tentang pendaftaran atau website.`);
+  }
+  if (device.aiPriceList) {
+    parts.push(`Daftar harga/biaya:\n${device.aiPriceList}\nGunakan informasi ini apabila pengguna menanyakan harga atau biaya.`);
+  }
+  return parts.length > 0 ? parts.join('\n\n') : undefined;
+}
 
 // Lifecycle order for outbound message status ACKs, used to reject
 // out-of-order updates (e.g. a late 'sent' ack arriving after 'read').
@@ -292,7 +311,9 @@ export const initSocket = (server: HTTPServer) => {
                 // Natural typing delay of 1.5s
                 await new Promise(resolve => setTimeout(resolve, 1500));
 
-                const aiReply = await callAiChatbot(data.body, device.aiContext || undefined);
+                const enrichedContext = buildAiContext(device);
+                const aiReply = await callAiChatbot(data.body, enrichedContext);
+                const recipient = data.fromWid || (data.from + '@c.us');
 
                 // Create outbound message in DB
                 const outMsg = await prisma.message.create({
@@ -313,9 +334,32 @@ export const initSocket = (server: HTTPServer) => {
                   // (handles the newer @lid privacy identifier, not just
                   // classic phone-based @c.us ids). Fall back for older
                   // gateway builds that don't send fromWid yet.
-                  to: data.fromWid || (data.from + '@c.us'),
+                  to: recipient,
                   body: aiReply,
                 });
+
+                // Deterministic (not LLM-dependent) brochure attachment: if the
+                // incoming message looks like a request for the brochure/catalog
+                // and one is configured, send it as a separate image/file message.
+                if (device.aiBrochureUrl && BROCHURE_KEYWORDS.test(data.body || '')) {
+                  const brochureMsg = await prisma.message.create({
+                    data: {
+                      deviceId: device.id,
+                      contactId: contact.id,
+                      direction: 'outbound',
+                      content: '[Brosur]',
+                      mediaUrl: device.aiBrochureUrl,
+                      status: 'queued',
+                    },
+                  });
+                  sendWhatsappMessage({
+                    messageId: brochureMsg.id,
+                    deviceId: device.id,
+                    to: recipient,
+                    body: '',
+                    mediaUrl: device.aiBrochureUrl,
+                  });
+                }
               } catch (aiErr) {
                 console.error('[Socket] AI auto-reply execution error:', aiErr);
               }
