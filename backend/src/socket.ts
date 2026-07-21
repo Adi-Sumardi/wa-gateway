@@ -315,28 +315,35 @@ export const initSocket = (server: HTTPServer) => {
                 const aiReply = await callAiChatbot(data.body, enrichedContext);
                 const recipient = data.fromWid || (data.from + '@c.us');
 
-                // Create outbound message in DB
-                const outMsg = await prisma.message.create({
-                  data: {
-                    deviceId: device.id,
-                    contactId: contact.id,
-                    direction: 'outbound',
-                    content: aiReply,
-                    status: 'queued',
-                  },
-                });
+                // The model decided this wasn't a genuine question (e.g. an
+                // automated greeting from another WhatsApp Business account) -
+                // stay silent instead of replying to a robot.
+                if (aiReply.trim().toUpperCase() === NO_REPLY_SENTINEL) {
+                  console.log(`[AI] Abstained from replying to ${data.from} (not a genuine question)`);
+                } else {
+                  // Create outbound message in DB
+                  const outMsg = await prisma.message.create({
+                    data: {
+                      deviceId: device.id,
+                      contactId: contact.id,
+                      direction: 'outbound',
+                      content: aiReply,
+                      status: 'queued',
+                    },
+                  });
 
-                // Dispatch message to gateway
-                sendWhatsappMessage({
-                  messageId: outMsg.id,
-                  deviceId: device.id,
-                  // Reply to the exact WID WhatsApp reported for the sender
-                  // (handles the newer @lid privacy identifier, not just
-                  // classic phone-based @c.us ids). Fall back for older
-                  // gateway builds that don't send fromWid yet.
-                  to: recipient,
-                  body: aiReply,
-                });
+                  // Dispatch message to gateway
+                  sendWhatsappMessage({
+                    messageId: outMsg.id,
+                    deviceId: device.id,
+                    // Reply to the exact WID WhatsApp reported for the sender
+                    // (handles the newer @lid privacy identifier, not just
+                    // classic phone-based @c.us ids). Fall back for older
+                    // gateway builds that don't send fromWid yet.
+                    to: recipient,
+                    body: aiReply,
+                  });
+                }
 
                 // Deterministic (not LLM-dependent) brochure attachment: if the
                 // incoming message looks like a request for the brochure/catalog
@@ -529,17 +536,24 @@ export const sendWhatsappMessage = (data: { messageId: string; deviceId: string;
 
 
 // Helper function to query AI API (supports OpenAI ChatGPT and Google Gemini)
+// Returned verbatim by the model (see ABSTAIN_INSTRUCTION below) when the
+// incoming message isn't a genuine question from a person - e.g. another
+// WhatsApp Business account's automated greeting/away message - so the bot
+// stays silent instead of replying to a robot.
+const NO_REPLY_SENTINEL = 'NO_REPLY';
+
+const ABSTAIN_INSTRUCTION = `Anda adalah asisten balas otomatis WhatsApp. HANYA balas apabila pesan yang masuk merupakan pertanyaan atau permintaan asli dari calon pelanggan/manusia.
+Jika pesan yang masuk terlihat seperti pesan/balasan OTOMATIS dari sistem lain - contoh: pesan sambutan otomatis WhatsApp Business ("terima kasih sudah menghubungi", "selamat datang di..."), notifikasi, atau pesan tanpa maksud jelas (hanya emoji/stiker/ucapan singkat tanpa pertanyaan) - JANGAN membalas dengan kalimat apapun. Balas HANYA dengan teks persis: ${NO_REPLY_SENTINEL} (tanpa tanda kutip, tanpa kata lain).`;
+
 async function callAiChatbot(prompt: string, context?: string): Promise<string> {
   const openAiKey = process.env.OPENAI_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
+  const systemContent = context ? `${ABSTAIN_INSTRUCTION}\n\n${context}` : ABSTAIN_INSTRUCTION;
 
   if (openAiKey) {
     try {
       console.log('[AI] Querying OpenAI API...');
-      const messages = [];
-      if (context) {
-        messages.push({ role: 'system', content: context });
-      }
+      const messages = [{ role: 'system', content: systemContent }];
       messages.push({ role: 'user', content: prompt });
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -577,7 +591,7 @@ async function callAiChatbot(prompt: string, context?: string): Promise<string> 
         },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          systemInstruction: context ? { parts: [{ text: context }] } : undefined,
+          systemInstruction: { parts: [{ text: systemContent }] },
         }),
       });
 
