@@ -99,8 +99,8 @@ export default function App() {
   // Auth state
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [user, setUser] = useState<UserData | null>(null);
-  const [loginEmail, setLoginEmail] = useState('admin@sendago.com');
-  const [loginPassword, setLoginPassword] = useState('admin12345');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
