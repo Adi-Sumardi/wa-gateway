@@ -19,6 +19,18 @@ const socket: Socket = io(BACKEND_URL, {
   reconnection: true,
 });
 
+// Rewrites a Google Drive "share" link (which serves an HTML viewer page,
+// not the raw file) into its direct-download form so MessageMedia.fromUrl
+// actually gets the file bytes instead of an HTML page. Any other URL is
+// returned unchanged.
+function resolveMediaUrl(url: string): string {
+  const match = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (match) {
+    return `https://drive.google.com/uc?export=download&id=${match[1]}`;
+  }
+  return url;
+}
+
 // Map of active WhatsApp Client instances, keyed by device ID
 const clients = new Map<string, Client>();
 
@@ -102,8 +114,9 @@ const startQueueWorker = (deviceId: string) => {
         let sentMsg;
         if (nextMsg.mediaUrl) {
           try {
-            console.log(`[Gateway] [Media] Downloading and sending attachment: ${nextMsg.mediaUrl}`);
-            const media = await MessageMedia.fromUrl(nextMsg.mediaUrl, { unsafeMime: true });
+            const resolvedUrl = resolveMediaUrl(nextMsg.mediaUrl);
+            console.log(`[Gateway] [Media] Downloading and sending attachment: ${resolvedUrl}`);
+            const media = await MessageMedia.fromUrl(resolvedUrl, { unsafeMime: true });
             sentMsg = await client.sendMessage(chatId, media, { caption: nextMsg.body });
           } catch (mediaErr: any) {
             console.error(`[Gateway] [Media] Download failed. Falling back to plain text. Error:`, mediaErr.message);
