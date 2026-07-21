@@ -257,7 +257,15 @@ socket.on('init-device', async (data: { deviceId: string }) => {
     // Inbound messages
     client.on('message', async (msg) => {
       if (msg.fromMe) return; // ignore outbound messages triggered on phone
-      
+
+      // Only relay direct 1-on-1 chats. Group messages (@g.us) and WhatsApp
+      // Status/broadcast updates (status@broadcast) are not a customer
+      // conversation - without this, the AI auto-reply bot would answer
+      // inside groups the device is a member of, which looks like spam.
+      if (msg.from.endsWith('@g.us') || msg.from.endsWith('@broadcast')) {
+        return;
+      }
+
       console.log(`[Gateway] Device ${deviceId} received message from ${msg.from}`);
       socket.emit('incoming-message', {
         deviceId,
