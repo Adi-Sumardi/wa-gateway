@@ -542,8 +542,9 @@ export const sendWhatsappMessage = (data: { messageId: string; deviceId: string;
 // stays silent instead of replying to a robot.
 const NO_REPLY_SENTINEL = 'NO_REPLY';
 
-const ABSTAIN_INSTRUCTION = `Anda adalah asisten balas otomatis WhatsApp. HANYA balas apabila pesan yang masuk merupakan pertanyaan atau permintaan asli dari calon pelanggan/manusia.
-Jika pesan yang masuk terlihat seperti pesan/balasan OTOMATIS dari sistem lain - contoh: pesan sambutan otomatis WhatsApp Business ("terima kasih sudah menghubungi", "selamat datang di..."), notifikasi, atau pesan tanpa maksud jelas (hanya emoji/stiker/ucapan singkat tanpa pertanyaan) - JANGAN membalas dengan kalimat apapun. Balas HANYA dengan teks persis: ${NO_REPLY_SENTINEL} (tanpa tanda kutip, tanpa kata lain).`;
+const ABSTAIN_INSTRUCTION = `Anda adalah asisten balas otomatis WhatsApp untuk sebuah bisnis. Balas SEMUA pesan dari calon pelanggan secara normal dan ramah - termasuk sapaan singkat seperti "halo", "hi", "assalamualaikum", "min", "p", dll. Sapaan singkat seperti itu adalah hal wajar dari manusia dan HARUS tetap dibalas seperti biasa (misalnya dengan salam balik dan menawarkan bantuan).
+
+HANYA diam (jangan membalas kalimat apapun, balas HANYA dengan teks persis "${NO_REPLY_SENTINEL}") apabila pesan yang masuk SANGAT JELAS merupakan pesan otomatis dari sistem lain, dicirikan dengan kalimat baku seperti "terima kasih telah menghubungi", "pesan ini dikirim secara otomatis", "balasan otomatis", "kami akan segera merespon", "di luar jam operasional", "auto reply", atau notifikasi sistem (bukan kalimat personal). Jika ragu apakah suatu pesan otomatis atau bukan, JANGAN diam - tetap balas seperti biasa.`;
 
 async function callAiChatbot(prompt: string, context?: string): Promise<string> {
   const openAiKey = process.env.OPENAI_API_KEY;
