@@ -16,13 +16,16 @@ export const login = async (req: AuthenticatedRequest, res: Response) => {
 
   try {
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || !user.isActive) {
-      return res.status(401).json({ error: 'Invalid credentials or inactive account' });
+    if (!user) {
+      return res.status(401).json({ error: 'Email tidak terdaftar' });
+    }
+    if (!user.isActive) {
+      return res.status(401).json({ error: 'Akun ini telah dinonaktifkan. Hubungi admin Anda.' });
     }
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Password yang Anda masukkan salah' });
     }
 
     const token = jwt.sign(

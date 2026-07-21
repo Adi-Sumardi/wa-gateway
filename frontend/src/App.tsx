@@ -572,8 +572,12 @@ export default function App() {
             </div>
 
             {loginError && (
-              <div className="bg-error-container text-error px-4 py-3 rounded-xl text-sm mb-6 border border-error/20">
-                {loginError}
+              <div className="flex items-start gap-3 bg-error-container text-error px-4 py-3.5 rounded-xl mb-6 border-2 border-error/30 animate-toast-in">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-sm">Login Gagal</p>
+                  <p className="text-xs mt-0.5 opacity-90">{loginError}</p>
+                </div>
               </div>
             )}
 
@@ -722,13 +726,15 @@ export default function App() {
               <span className="text-sm">Contacts</span>
             </button>
           )}
-          <button
-            onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-semibold ${activeTab === 'settings' ? 'bg-primary-container text-on-primary-container sidebar-active-pill' : 'text-on-surface-variant hover:bg-surface-container-high hover:text-primary'}`}
-          >
-            <Settings className="w-5 h-5" />
-            <span className="text-sm">API & Settings</span>
-          </button>
+          {hasPermission('settings.view') && (
+            <button
+              onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-semibold ${activeTab === 'settings' ? 'bg-primary-container text-on-primary-container sidebar-active-pill' : 'text-on-surface-variant hover:bg-surface-container-high hover:text-primary'}`}
+            >
+              <Settings className="w-5 h-5" />
+              <span className="text-sm">API & Settings</span>
+            </button>
+          )}
           {user.role === 'admin' && (
             <button
               onClick={() => { setActiveTab('users'); setIsSidebarOpen(false); }}
@@ -1316,7 +1322,7 @@ export default function App() {
           )}
 
           {/* TAB 4: API & WEBHOOK SETTINGS */}
-          {activeTab === 'settings' && (
+          {activeTab === 'settings' && hasPermission('settings.view') && (
             <div className="space-y-8">
               <div>
                 <h2 className="text-3xl font-bold text-on-surface font-headline-lg">API & Webhooks</h2>
