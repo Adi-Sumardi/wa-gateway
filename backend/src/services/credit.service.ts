@@ -2,7 +2,10 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export const topUp = async (adminId: string, userId: string, amount: number, note?: string): Promise<number> => {
+// actorId is the admin who manually topped someone up, or null for a
+// system-initiated credit (e.g. a paid Midtrans order) - both paths share
+// this one function so the ledger stays a single source of truth.
+export const topUp = async (actorId: string | null, userId: string, amount: number, note?: string): Promise<number> => {
   if (amount <= 0) {
     throw new Error('Top-up amount must be greater than zero');
   }
@@ -13,7 +16,7 @@ export const topUp = async (adminId: string, userId: string, amount: number, not
       data: { aiCreditBalance: { increment: amount } },
     });
     await tx.aiCreditTransaction.create({
-      data: { userId, amount, balanceAfter: updated.aiCreditBalance, type: 'topup', note, createdBy: adminId },
+      data: { userId, amount, balanceAfter: updated.aiCreditBalance, type: 'topup', note, createdBy: actorId },
     });
     return updated.aiCreditBalance;
   });

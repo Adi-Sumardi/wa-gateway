@@ -24,6 +24,8 @@ import * as contactController from './controllers/contact.controller';
 import * as contactGroupController from './controllers/contact-group.controller';
 import * as templateController from './controllers/template.controller';
 import * as creditController from './controllers/credit.controller';
+import * as creditPackageController from './controllers/credit-package.controller';
+import * as creditOrderController from './controllers/credit-order.controller';
 
 const app = express();
 const httpServer = createServer(app);
@@ -63,6 +65,18 @@ app.get('/api/audit-logs', authenticateJWT, requirePermission('audit.view'), use
 // pattern as device transfer; getTransactions allows admin or self.
 app.post('/api/credits/:userId/topup', authenticateJWT, requirePermission('credits.manage'), creditController.topUpCredit);
 app.get('/api/credits/:userId/transactions', authenticateJWT, creditController.getTransactions);
+
+// AI Credit Packages & Midtrans self-service top-up
+app.get('/api/credit-packages', authenticateJWT, creditPackageController.listPackages);
+app.post('/api/credit-packages', authenticateJWT, requirePermission('credits.manage'), creditPackageController.createPackage);
+app.patch('/api/credit-packages/:id', authenticateJWT, requirePermission('credits.manage'), creditPackageController.updatePackage);
+app.delete('/api/credit-packages/:id', authenticateJWT, requirePermission('credits.manage'), creditPackageController.deletePackage);
+
+app.post('/api/credit-orders', authenticateJWT, creditOrderController.createOrder);
+app.get('/api/credit-orders/me', authenticateJWT, creditOrderController.getMyOrders);
+// Public: called server-to-server by Midtrans, authenticated via signature
+// verification inside the handler, not a JWT.
+app.post('/api/midtrans/webhook', creditOrderController.handleWebhook);
 
 // Device Management Routes
 app.get('/api/devices', authenticateJWT, requirePermission('devices.view'), deviceController.listDevices);

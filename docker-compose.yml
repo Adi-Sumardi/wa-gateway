@@ -58,6 +58,8 @@ services:
       dockerfile: Dockerfile
       args:
         - VITE_API_URL=${VITE_API_URL:-http://localhost:5001}
+        - VITE_MIDTRANS_CLIENT_KEY=${MIDTRANS_CLIENT_KEY:-}
+        - VITE_MIDTRANS_IS_PRODUCTION=${MIDTRANS_IS_PRODUCTION:-true}
     container_name: sendago-frontend
     restart: always
     ports:

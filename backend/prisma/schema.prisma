@@ -83,6 +83,41 @@ model AiCreditTransaction {
   @@map("ai_credit_transactions")
 }
 
+model CreditPackage {
+  id        String        @id @default(uuid()) @db.Uuid
+  name      String
+  coins     Int
+  priceRp   Int           @map("price_rp")
+  isActive  Boolean       @default(true) @map("is_active")
+  createdAt DateTime      @default(now()) @map("created_at")
+  orders    CreditOrder[]
+
+  @@map("credit_packages")
+}
+
+enum CreditOrderStatus {
+  pending
+  paid
+  failed
+  expired
+}
+
+model CreditOrder {
+  id              String            @id @default(uuid()) @db.Uuid
+  userId          String            @db.Uuid @map("user_id")
+  packageId       String            @db.Uuid @map("package_id")
+  coins           Int
+  priceRp         Int               @map("price_rp")
+  midtransOrderId String            @unique @map("midtrans_order_id")
+  snapToken       String?           @map("snap_token")
+  status          CreditOrderStatus @default(pending)
+  createdAt       DateTime          @default(now()) @map("created_at")
+  paidAt          DateTime?         @map("paid_at")
+  package         CreditPackage     @relation(fields: [packageId], references: [id])
+
+  @@map("credit_orders")
+}
+
 model Device {
   id              String       @id @default(uuid()) @db.Uuid
   userId          String       @db.Uuid @map("user_id")

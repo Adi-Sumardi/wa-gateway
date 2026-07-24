@@ -74,6 +74,22 @@ async function seedPermissions() {
   console.log('Seeded permissions and default role grants.');
 }
 
+const DEFAULT_PACKAGES: { name: string; coins: number; priceRp: number }[] = [
+  { name: 'Paket Hemat', coins: 100, priceRp: 10000 },
+  { name: 'Paket Reguler', coins: 500, priceRp: 50000 },
+  { name: 'Paket Hemat Besar', coins: 1000, priceRp: 95000 },
+];
+
+async function seedCreditPackages() {
+  for (const pkg of DEFAULT_PACKAGES) {
+    const exists = await prisma.creditPackage.findFirst({ where: { name: pkg.name } });
+    if (!exists) {
+      await prisma.creditPackage.create({ data: pkg });
+    }
+  }
+  console.log('Seeded default AI credit packages.');
+}
+
 async function main() {
   // Check if admin user exists
   const existingAdmin = await prisma.user.findUnique({
@@ -97,6 +113,7 @@ async function main() {
   }
 
   await seedPermissions();
+  await seedCreditPackages();
 }
 
 main()

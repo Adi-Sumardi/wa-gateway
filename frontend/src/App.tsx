@@ -30,12 +30,14 @@ import {
   Flame,
   Users,
   Contact as ContactIcon,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Coins
 } from 'lucide-react';
 import BroadcastPage from './pages/BroadcastPage';
 import WarmerPage from './pages/WarmerPage';
 import UsersRolesPage from './pages/UsersRolesPage';
 import ContactsPage from './pages/ContactsPage';
+import TopUpPage from './pages/TopUpPage';
 
 const BACKEND_URL = (import.meta as any).env?.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:5001`;
 
@@ -111,7 +113,7 @@ export default function App() {
   const [showPassword, setShowPassword] = useState(false);
 
   // Navigation & Data state
-  const [activeTab, setActiveTab] = useState<'overview' | 'devices' | 'messages' | 'broadcast' | 'warmer' | 'settings' | 'users' | 'contacts'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'devices' | 'messages' | 'broadcast' | 'warmer' | 'settings' | 'users' | 'contacts' | 'topup'>('overview');
   const [permissions, setPermissions] = useState<string[]>([]);
   const hasPermission = (key: string) => permissions.includes(key);
   const [activeDocLanguage, setActiveDocLanguage] = useState<'curl' | 'nodejs' | 'python' | 'php'>('curl');
@@ -287,6 +289,11 @@ export default function App() {
 
     socket.on('ai-credit-depleted', (data: { deviceId: string; deviceLabel: string }) => {
       addToast(`Saldo AI habis untuk device "${data.deviceLabel}". Minta admin untuk top up.`, 'error');
+    });
+
+    socket.on('credit-updated', (data: { aiCreditBalance: number }) => {
+      setUser(prev => prev ? { ...prev, aiCreditBalance: data.aiCreditBalance } : prev);
+      addToast('Pembayaran berhasil! Saldo koin AI Anda sudah diperbarui.', 'success');
     });
   };
 
@@ -733,6 +740,13 @@ export default function App() {
               <span className="text-sm">Contacts</span>
             </button>
           )}
+          <button
+            onClick={() => { setActiveTab('topup'); setIsSidebarOpen(false); }}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-semibold ${activeTab === 'topup' ? 'bg-primary-container text-on-primary-container sidebar-active-pill' : 'text-on-surface-variant hover:bg-surface-container-high hover:text-primary'}`}
+          >
+            <Coins className="w-5 h-5" />
+            <span className="text-sm">Top Up Koin</span>
+          </button>
           {hasPermission('settings.view') && (
             <button
               onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); }}
@@ -1328,6 +1342,16 @@ export default function App() {
               addToast={addToast}
               hasPermission={hasPermission}
               setConfirmDialog={setConfirmDialog}
+            />
+          )}
+
+          {activeTab === 'topup' && (
+            <TopUpPage
+              backendUrl={BACKEND_URL}
+              getHeaders={getHeaders}
+              addToast={addToast}
+              role={user.role}
+              aiCreditBalance={user.aiCreditBalance ?? 0}
             />
           )}
 
