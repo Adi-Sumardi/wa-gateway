@@ -12,8 +12,17 @@ export const listDevices = async (req: AuthenticatedRequest, res: Response) => {
     const devices = await prisma.device.findMany({
       where: req.user.role === 'admin' ? {} : { userId: req.user.id },
       orderBy: { createdAt: 'desc' },
+      include: { user: { select: { name: true, email: true } } },
     });
-    return res.json(devices);
+    // Admin sees every user's devices in the same list/dropdowns used to
+    // create broadcasts and warmer sessions - flatten the owner in so the UI
+    // can label whose device is whose instead of looking identical.
+    const withOwner = devices.map(({ user, ...device }) => ({
+      ...device,
+      ownerName: user.name,
+      ownerEmail: user.email,
+    }));
+    return res.json(withOwner);
   } catch (err) {
     console.error('List devices error:', err);
     return res.status(500).json({ error: 'Internal server error' });

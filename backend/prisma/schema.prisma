@@ -111,6 +111,7 @@ model Contact {
 
 model ContactGroup {
   id          String               @id @default(uuid()) @db.Uuid
+  userId      String?              @db.Uuid @map("user_id")
   name        String
   description String?              @db.Text
   createdAt   DateTime             @default(now()) @map("created_at")

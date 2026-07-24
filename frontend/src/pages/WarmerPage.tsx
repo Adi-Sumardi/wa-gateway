@@ -6,6 +6,7 @@ interface Device {
   id: string;
   label: string;
   status: 'connecting' | 'connected' | 'disconnected' | 'banned';
+  ownerEmail?: string;
 }
 
 interface WarmerSession {
@@ -209,7 +210,7 @@ export default function WarmerPage({ backendUrl, getHeaders, devices, socket, ad
                     onChange={() => toggleDevice(d.id)}
                     className="sr-only"
                   />
-                  {d.label}
+                  {d.label}{d.ownerEmail ? ` — ${d.ownerEmail}` : ''}
                 </label>
               ))}
               {connectedDevices.length === 0 && (

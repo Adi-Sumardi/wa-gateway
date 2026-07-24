@@ -120,7 +120,7 @@ export default function ContactsPage({ backendUrl, getHeaders, addToast, hasPerm
   const handleDeleteContact = (contact: ContactRow) => {
     setConfirmDialog({
       title: 'Delete Contact',
-      message: `Are you sure you want to delete "${contact.name}"?`,
+      message: `Menghapus "${contact.name}" juga akan menghapus PERMANEN seluruh riwayat chat dengan kontak ini dan datanya di laporan broadcast manapun yang pernah mengirim ke nomor ini. Tindakan ini tidak bisa dibatalkan. Lanjutkan?`,
       onConfirm: async () => {
         setConfirmDialog(null);
         try {

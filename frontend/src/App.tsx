@@ -57,6 +57,8 @@ interface Device {
   aiWebsiteUrl?: string | null;
   aiBrochureUrl?: string | null;
   aiPriceList?: string | null;
+  ownerName?: string;
+  ownerEmail?: string;
 }
 
 interface MessageLog {
@@ -847,6 +849,9 @@ export default function App() {
                           <div>
                             <p className="font-bold text-sm text-on-surface">{dev.label}</p>
                             <p className="text-xs text-on-surface-variant mt-1 font-mono">{dev.phoneNumber || 'Not connected'}</p>
+                            {user.role === 'admin' && dev.ownerEmail && (
+                              <p className="text-[10px] text-primary font-bold mt-0.5">Owner: {dev.ownerEmail}</p>
+                            )}
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] uppercase font-bold text-on-surface-variant tracking-wider">{dev.status}</span>
@@ -991,6 +996,9 @@ export default function App() {
                             }`}>{dev.status}</span>
                             <h3 className="font-bold text-lg text-on-surface mt-2">{dev.label}</h3>
                             <p className="text-xs text-on-surface-variant font-mono mt-1">{dev.phoneNumber || 'Not connected'}</p>
+                            {user.role === 'admin' && dev.ownerEmail && (
+                              <p className="text-[10px] text-primary font-bold mt-1">Owner: {dev.ownerEmail}</p>
+                            )}
                           </div>
                           
                           <div className={`w-3 h-3 rounded-full ${

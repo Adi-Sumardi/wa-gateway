@@ -78,6 +78,13 @@ export const updateUser = async (req: AuthenticatedRequest, res: Response) => {
       }
     }
 
+    // Changing your own role or deactivating yourself is easy to do by
+    // accident and immediately locks you out of the admin panel mid-session
+    // - require another admin to make that change instead.
+    if (id === req.user.id && ((role !== undefined && role !== target.role) || isActive === false)) {
+      return res.status(400).json({ error: 'You cannot change your own role or deactivate your own account. Ask another admin to do it.' });
+    }
+
     const losingAdmin = target.role === 'admin' && ((role && role !== 'admin') || isActive === false);
     if (losingAdmin) {
       const otherActiveAdmins = await prisma.user.count({

@@ -8,6 +8,7 @@ export const listGroups = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   try {
     const groups = await prisma.contactGroup.findMany({
+      where: req.user.role === 'admin' ? {} : { userId: req.user.id },
       orderBy: { createdAt: 'desc' },
       include: { _count: { select: { members: true } }, members: { select: { contactId: true } } },
     });
@@ -24,7 +25,9 @@ export const createGroup = async (req: AuthenticatedRequest, res: Response) => {
   if (!name) return res.status(400).json({ error: 'Parameter "name" is required' });
 
   try {
-    const group = await prisma.contactGroup.create({ data: { name, description: description || undefined } });
+    const group = await prisma.contactGroup.create({
+      data: { userId: req.user.id, name, description: description || undefined },
+    });
     return res.status(201).json(group);
   } catch (err) {
     console.error('Create contact group error:', err);
@@ -37,7 +40,9 @@ export const deleteGroup = async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
 
   try {
-    const group = await prisma.contactGroup.findUnique({ where: { id } });
+    const group = await prisma.contactGroup.findFirst({
+      where: req.user.role === 'admin' ? { id } : { id, userId: req.user.id },
+    });
     if (!group) return res.status(404).json({ error: 'Group not found' });
 
     await prisma.contactGroup.delete({ where: { id } });
@@ -58,7 +63,9 @@ export const setGroupMembers = async (req: AuthenticatedRequest, res: Response) 
   }
 
   try {
-    const group = await prisma.contactGroup.findUnique({ where: { id } });
+    const group = await prisma.contactGroup.findFirst({
+      where: req.user.role === 'admin' ? { id } : { id, userId: req.user.id },
+    });
     if (!group) return res.status(404).json({ error: 'Group not found' });
 
     if (contactIds.length > 0) {

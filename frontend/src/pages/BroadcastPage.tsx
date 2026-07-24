@@ -6,6 +6,7 @@ interface Device {
   id: string;
   label: string;
   status: 'connecting' | 'connected' | 'disconnected' | 'banned';
+  ownerEmail?: string;
 }
 
 interface Broadcast {
@@ -209,7 +210,7 @@ export default function BroadcastPage({ backendUrl, getHeaders, devices, socket,
             >
               <option value="">Select a device</option>
               {connectedDevices.map((d) => (
-                <option key={d.id} value={d.id}>{d.label}</option>
+                <option key={d.id} value={d.id}>{d.label}{d.ownerEmail ? ` — ${d.ownerEmail}` : ''}</option>
               ))}
             </select>
           </div>
