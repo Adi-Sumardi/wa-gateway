@@ -7,7 +7,7 @@ import { logAudit } from '../services/audit.service';
 
 const prisma = new PrismaClient();
 
-const USER_SELECT = { id: true, name: true, email: true, role: true, isActive: true, createdAt: true };
+const USER_SELECT = { id: true, name: true, email: true, role: true, isActive: true, createdAt: true, aiCreditBalance: true };
 
 export const listUsers = async (req: AuthenticatedRequest, res: Response) => {
   try {

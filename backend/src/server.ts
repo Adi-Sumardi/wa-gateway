@@ -23,6 +23,7 @@ import * as userController from './controllers/user.controller';
 import * as contactController from './controllers/contact.controller';
 import * as contactGroupController from './controllers/contact-group.controller';
 import * as templateController from './controllers/template.controller';
+import * as creditController from './controllers/credit.controller';
 
 const app = express();
 const httpServer = createServer(app);
@@ -57,6 +58,11 @@ app.patch('/api/users/:id', authenticateJWT, requirePermission('users.manage'), 
 app.get('/api/permissions', authenticateJWT, requirePermission('users.manage'), userController.getPermissionMatrix);
 app.put('/api/permissions', authenticateJWT, requirePermission('users.manage'), userController.updatePermissionMatrix);
 app.get('/api/audit-logs', authenticateJWT, requirePermission('audit.view'), userController.getAuditLogs);
+
+// AI Credit (Coin) Routes - topUpCredit hard-checks admin internally, same
+// pattern as device transfer; getTransactions allows admin or self.
+app.post('/api/credits/:userId/topup', authenticateJWT, requirePermission('credits.manage'), creditController.topUpCredit);
+app.get('/api/credits/:userId/transactions', authenticateJWT, creditController.getTransactions);
 
 // Device Management Routes
 app.get('/api/devices', authenticateJWT, requirePermission('devices.view'), deviceController.listDevices);

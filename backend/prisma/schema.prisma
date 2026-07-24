@@ -54,6 +54,7 @@ model User {
   passwordHash  String     @map("password_hash")
   role          Role       @default(operator)
   isActive      Boolean    @default(true) @map("is_active")
+  aiCreditBalance Int      @default(0) @map("ai_credit_balance")
   createdAt     DateTime   @default(now()) @map("created_at")
   devices       Device[]
   apiKeys       ApiKey[]
@@ -61,6 +62,25 @@ model User {
   warmerSessions WarmerSession[]
 
   @@map("users")
+}
+
+enum CreditTransactionType {
+  topup
+  consumption
+  adjustment
+}
+
+model AiCreditTransaction {
+  id           String                 @id @default(uuid()) @db.Uuid
+  userId       String                 @db.Uuid @map("user_id")
+  amount       Int
+  balanceAfter Int                    @map("balance_after")
+  type         CreditTransactionType
+  note         String?                @db.Text
+  createdBy    String?                @db.Uuid @map("created_by")
+  createdAt    DateTime               @default(now()) @map("created_at")
+
+  @@map("ai_credit_transactions")
 }
 
 model Device {

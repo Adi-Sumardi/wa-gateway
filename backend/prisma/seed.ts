@@ -22,6 +22,7 @@ const PERMISSIONS: { key: string; label: string; category: string }[] = [
   { key: 'templates.view', label: 'View message templates', category: 'Templates' },
   { key: 'templates.manage', label: 'Manage message templates', category: 'Templates' },
   { key: 'audit.view', label: 'View audit log', category: 'Users' },
+  { key: 'credits.manage', label: 'Manage AI credits / top-ups', category: 'Users' },
 ];
 
 // operator/viewer defaults; admin is always fully granted regardless of this table

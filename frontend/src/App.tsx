@@ -44,6 +44,7 @@ interface UserData {
   name: string;
   email: string;
   role: string;
+  aiCreditBalance?: number;
 }
 
 interface Device {
@@ -282,6 +283,10 @@ export default function App() {
 
     socket.on('message-status-update', (data: MessageLog) => {
       setLogs(prev => prev.map(l => l.id === data.id ? { ...l, status: data.status, failedReason: data.failedReason } : l));
+    });
+
+    socket.on('ai-credit-depleted', (data: { deviceId: string; deviceLabel: string }) => {
+      addToast(`Saldo AI habis untuk device "${data.deviceLabel}". Minta admin untuk top up.`, 'error');
     });
   };
 
@@ -759,8 +764,15 @@ export default function App() {
             </button>
           )}
 
+          {user.role !== 'admin' && (
+            <div className="mx-4 px-3 py-2 rounded-xl bg-primary-container/40 flex items-center justify-between">
+              <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Saldo AI</span>
+              <span className="text-xs font-bold text-primary">🪙 {user.aiCreditBalance ?? 0}</span>
+            </div>
+          )}
+
           <div className="h-px bg-outline-variant mx-4"></div>
-          
+
           <div className="flex items-center gap-3 px-4 py-2">
             <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
               {user.name.substring(0, 2).toUpperCase()}

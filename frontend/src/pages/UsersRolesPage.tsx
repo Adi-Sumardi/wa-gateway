@@ -8,6 +8,7 @@ interface UserRow {
   role: 'admin' | 'operator' | 'viewer';
   isActive: boolean;
   createdAt: string;
+  aiCreditBalance: number;
 }
 
 interface AuditLogRow {
@@ -55,6 +56,11 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
   const [editEmail, setEditEmail] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [savingCredentials, setSavingCredentials] = useState(false);
+
+  const [topUpUserId, setTopUpUserId] = useState<string | null>(null);
+  const [topUpAmount, setTopUpAmount] = useState('');
+  const [topUpNote, setTopUpNote] = useState('');
+  const [savingTopUp, setSavingTopUp] = useState(false);
 
   const fetchUsers = async () => {
     try {
@@ -170,6 +176,37 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
       addToast(err.message || 'Failed to update credentials', 'error');
     } finally {
       setSavingCredentials(false);
+    }
+  };
+
+  const openTopUp = (u: UserRow) => {
+    setTopUpUserId(u.id);
+    setTopUpAmount('');
+    setTopUpNote('');
+  };
+
+  const saveTopUp = async (id: string) => {
+    const amount = Number(topUpAmount);
+    if (!amount || amount <= 0) {
+      addToast('Enter a positive top-up amount', 'error');
+      return;
+    }
+    setSavingTopUp(true);
+    try {
+      const res = await fetch(`${backendUrl}/api/credits/${id}/topup`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ amount, note: topUpNote || undefined }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed to top up');
+      setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, aiCreditBalance: result.aiCreditBalance } : u)));
+      addToast(`Top up berhasil, saldo baru: ${result.aiCreditBalance} koin`, 'success');
+      setTopUpUserId(null);
+    } catch (err: any) {
+      addToast(err.message || 'Failed to top up', 'error');
+    } finally {
+      setSavingTopUp(false);
     }
   };
 
@@ -293,6 +330,7 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
                 <th className="py-3 px-4">Email</th>
                 <th className="py-3 px-4">Role</th>
                 <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4">AI Credits</th>
                 <th className="py-3 px-4">Actions</th>
               </tr>
             </thead>
@@ -324,7 +362,16 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
                       {u.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
+                  <td className="py-3.5 px-4 font-mono">
+                    {u.role === 'admin' ? '∞' : `🪙 ${u.aiCreditBalance}`}
+                  </td>
                   <td className="py-3.5 px-4 flex gap-2">
+                    <button
+                      onClick={() => (topUpUserId === u.id ? setTopUpUserId(null) : openTopUp(u))}
+                      className="px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase bg-primary text-on-primary"
+                    >
+                      {topUpUserId === u.id ? 'Close' : 'Top Up'}
+                    </button>
                     <button
                       onClick={() => (editingUserId === u.id ? setEditingUserId(null) : openEditCredentials(u))}
                       className="px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase bg-primary-container text-on-primary-container"
@@ -340,9 +387,38 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
                     </button>
                   </td>
                 </tr>
+                {topUpUserId === u.id && (
+                  <tr>
+                    <td colSpan={6} className="p-4 bg-surface-container-lowest">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <input
+                          value={topUpAmount}
+                          onChange={(e) => setTopUpAmount(e.target.value)}
+                          placeholder="Jumlah koin"
+                          type="number"
+                          min="1"
+                          className="w-full px-3 py-2.5 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
+                        />
+                        <input
+                          value={topUpNote}
+                          onChange={(e) => setTopUpNote(e.target.value)}
+                          placeholder="Catatan (opsional, mis. no. transfer)"
+                          className="w-full px-3 py-2.5 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
+                        />
+                        <button
+                          onClick={() => saveTopUp(u.id)}
+                          disabled={savingTopUp}
+                          className="bg-primary text-on-primary py-2.5 rounded-xl font-bold disabled:opacity-50"
+                        >
+                          {savingTopUp ? 'Memproses...' : 'Top Up'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
                 {editingUserId === u.id && (
                   <tr>
-                    <td colSpan={5} className="p-4 bg-surface-container-lowest">
+                    <td colSpan={6} className="p-4 bg-surface-container-lowest">
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <input
                           value={editEmail}
@@ -377,7 +453,7 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
               ))}
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-on-surface-variant">
+                  <td colSpan={6} className="py-6 text-center text-on-surface-variant">
                     No users yet.
                   </td>
                 </tr>

@@ -2,6 +2,7 @@ import { Server as SocketServer, Socket } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import { PrismaClient, Device, DeviceStatus, MessageStatus } from '@prisma/client';
 import * as jwt from 'jsonwebtoken';
+import { hasBalance, consumeCredit } from './services/credit.service';
 
 const prisma = new PrismaClient();
 const GATEWAY_TOKEN = process.env.GATEWAY_TOKEN || 'sendago-gateway-secret-token';
@@ -246,7 +247,8 @@ export const initSocket = (server: HTTPServer) => {
 
           // Find the device
           const device = await prisma.device.findUnique({
-            where: { id: data.deviceId }
+            where: { id: data.deviceId },
+            include: { user: { select: { role: true } } },
           });
 
           if (!device) {
@@ -308,6 +310,16 @@ export const initSocket = (server: HTTPServer) => {
             // Trigger in background to keep socket response fast
             (async () => {
               try {
+                // Admin's own AI usage is unlimited/free, matching the
+                // "admin bypasses" pattern used everywhere else in this app -
+                // only metered for non-admin (member) device owners.
+                const isMetered = device.user.role !== 'admin';
+                if (isMetered && !(await hasBalance(device.userId))) {
+                  console.log(`[Credit] Skipping AI reply for device ${device.id}: balance is 0`);
+                  emitToOwner(device.userId, 'ai-credit-depleted', { deviceId: device.id, deviceLabel: device.label });
+                  return;
+                }
+
                 // Natural typing delay of 1.5s
                 await new Promise(resolve => setTimeout(resolve, 1500));
 
@@ -317,10 +329,12 @@ export const initSocket = (server: HTTPServer) => {
 
                 // The model decided this wasn't a genuine question (e.g. an
                 // automated greeting from another WhatsApp Business account) -
-                // stay silent instead of replying to a robot.
+                // stay silent instead of replying to a robot. Abstaining costs
+                // nothing since no OpenAI-generated reply was actually sent.
                 if (aiReply.trim().toUpperCase() === NO_REPLY_SENTINEL) {
                   console.log(`[AI] Abstained from replying to ${data.from} (not a genuine question)`);
                 } else {
+                  if (isMetered) await consumeCredit(device.userId);
                   // Create outbound message in DB
                   const outMsg = await prisma.message.create({
                     data: {
