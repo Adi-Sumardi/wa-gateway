@@ -267,7 +267,7 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
             onChange={(e) => setRole(e.target.value as 'admin' | 'operator' | 'viewer')}
             className="w-full px-3 py-3 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
           >
-            <option value="operator">Operator</option>
+            <option value="operator">Member</option>
             <option value="viewer">Viewer</option>
             <option value="admin">Admin</option>
           </select>
@@ -313,7 +313,7 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
                       className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase ${ROLE_BADGE[u.role]} border-none outline-none disabled:opacity-60`}
                     >
                       <option value="admin">Admin</option>
-                      <option value="operator">Operator</option>
+                      <option value="operator">Member</option>
                       <option value="viewer">Viewer</option>
                     </select>
                   </td>
@@ -406,7 +406,7 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
               <tr className="border-b border-outline-variant/30 text-on-surface-variant uppercase font-bold tracking-wider">
                 <th className="py-3 px-4">Permission</th>
                 <th className="py-3 px-4 text-center">Admin</th>
-                <th className="py-3 px-4 text-center">Operator</th>
+                <th className="py-3 px-4 text-center">Member</th>
                 <th className="py-3 px-4 text-center">Viewer</th>
               </tr>
             </thead>
