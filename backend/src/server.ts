@@ -74,6 +74,7 @@ app.delete('/api/credit-packages/:id', authenticateJWT, requirePermission('credi
 
 app.post('/api/credit-orders', authenticateJWT, creditOrderController.createOrder);
 app.get('/api/credit-orders/me', authenticateJWT, creditOrderController.getMyOrders);
+app.post('/api/credit-orders/:id/cancel', authenticateJWT, creditOrderController.cancelOrder);
 // Public: called server-to-server by Midtrans, authenticated via signature
 // verification inside the handler, not a JWT.
 app.post('/api/midtrans/webhook', creditOrderController.handleWebhook);

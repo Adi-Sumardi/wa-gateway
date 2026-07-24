@@ -9,6 +9,9 @@ interface UserRow {
   isActive: boolean;
   createdAt: string;
   aiCreditBalance: number;
+  maxDevices: number;
+  broadcastQuotaMonthly: number;
+  maxWarmerSessions: number;
 }
 
 interface AuditLogRow {
@@ -55,6 +58,9 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editEmail, setEditEmail] = useState('');
   const [editPassword, setEditPassword] = useState('');
+  const [editMaxDevices, setEditMaxDevices] = useState('');
+  const [editBroadcastQuota, setEditBroadcastQuota] = useState('');
+  const [editMaxWarmerSessions, setEditMaxWarmerSessions] = useState('');
   const [savingCredentials, setSavingCredentials] = useState(false);
 
   const [topUpUserId, setTopUpUserId] = useState<string | null>(null);
@@ -148,6 +154,9 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
     setEditingUserId(u.id);
     setEditEmail(u.email);
     setEditPassword('');
+    setEditMaxDevices(String(u.maxDevices));
+    setEditBroadcastQuota(String(u.broadcastQuotaMonthly));
+    setEditMaxWarmerSessions(String(u.maxWarmerSessions));
   };
 
   const saveCredentials = async (id: string) => {
@@ -159,12 +168,31 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
       addToast('Password must be at least 6 characters', 'error');
       return;
     }
+    const maxDevices = Number(editMaxDevices);
+    const broadcastQuotaMonthly = Number(editBroadcastQuota);
+    const maxWarmerSessions = Number(editMaxWarmerSessions);
+    for (const [label, raw, value] of [
+      ['Max devices', editMaxDevices, maxDevices],
+      ['Broadcast quota', editBroadcastQuota, broadcastQuotaMonthly],
+      ['Max warmer sessions', editMaxWarmerSessions, maxWarmerSessions],
+    ] as [string, string, number][]) {
+      if (raw !== '' && (isNaN(value) || value < 0)) {
+        addToast(`${label} must be a non-negative number`, 'error');
+        return;
+      }
+    }
     setSavingCredentials(true);
     try {
       const res = await fetch(`${backendUrl}/api/users/${id}`, {
         method: 'PATCH',
         headers: getHeaders(),
-        body: JSON.stringify({ email: editEmail, password: editPassword || undefined }),
+        body: JSON.stringify({
+          email: editEmail,
+          password: editPassword || undefined,
+          maxDevices: editMaxDevices !== '' ? maxDevices : undefined,
+          broadcastQuotaMonthly: editBroadcastQuota !== '' ? broadcastQuotaMonthly : undefined,
+          maxWarmerSessions: editMaxWarmerSessions !== '' ? maxWarmerSessions : undefined,
+        }),
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'Failed to update credentials');
@@ -331,6 +359,7 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
                 <th className="py-3 px-4">Role</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4">AI Credits</th>
+                <th className="py-3 px-4">Max Devices</th>
                 <th className="py-3 px-4">Actions</th>
               </tr>
             </thead>
@@ -365,6 +394,9 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
                   <td className="py-3.5 px-4 font-mono">
                     {u.role === 'admin' ? '∞' : `🪙 ${u.aiCreditBalance}`}
                   </td>
+                  <td className="py-3.5 px-4 font-mono">
+                    {u.role === 'admin' ? '∞' : u.maxDevices}
+                  </td>
                   <td className="py-3.5 px-4 flex gap-2">
                     <button
                       onClick={() => (topUpUserId === u.id ? setTopUpUserId(null) : openTopUp(u))}
@@ -389,7 +421,7 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
                 </tr>
                 {topUpUserId === u.id && (
                   <tr>
-                    <td colSpan={6} className="p-4 bg-surface-container-lowest">
+                    <td colSpan={7} className="p-4 bg-surface-container-lowest">
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <input
                           value={topUpAmount}
@@ -418,7 +450,7 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
                 )}
                 {editingUserId === u.id && (
                   <tr>
-                    <td colSpan={6} className="p-4 bg-surface-container-lowest">
+                    <td colSpan={7} className="p-4 bg-surface-container-lowest">
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <input
                           value={editEmail}
@@ -438,12 +470,36 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
                           name={`edit-password-${u.id}`}
                           className="w-full px-3 py-2.5 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
                         />
+                        <input
+                          value={editMaxDevices}
+                          onChange={(e) => setEditMaxDevices(e.target.value)}
+                          placeholder="Max devices"
+                          type="number"
+                          min="0"
+                          className="w-full px-3 py-2.5 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
+                        />
+                        <input
+                          value={editBroadcastQuota}
+                          onChange={(e) => setEditBroadcastQuota(e.target.value)}
+                          placeholder="Broadcast quota / bulan"
+                          type="number"
+                          min="0"
+                          className="w-full px-3 py-2.5 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
+                        />
+                        <input
+                          value={editMaxWarmerSessions}
+                          onChange={(e) => setEditMaxWarmerSessions(e.target.value)}
+                          placeholder="Max slot warmer aktif"
+                          type="number"
+                          min="0"
+                          className="w-full px-3 py-2.5 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none"
+                        />
                         <button
                           onClick={() => saveCredentials(u.id)}
                           disabled={savingCredentials}
-                          className="bg-primary text-on-primary py-2.5 rounded-xl font-bold disabled:opacity-50"
+                          className="bg-primary text-on-primary py-2.5 rounded-xl font-bold disabled:opacity-50 md:col-span-3"
                         >
-                          {savingCredentials ? 'Saving...' : 'Save Credentials'}
+                          {savingCredentials ? 'Saving...' : 'Save Changes'}
                         </button>
                       </div>
                     </td>
@@ -453,7 +509,7 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
               ))}
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-on-surface-variant">
+                  <td colSpan={7} className="py-6 text-center text-on-surface-variant">
                     No users yet.
                   </td>
                 </tr>

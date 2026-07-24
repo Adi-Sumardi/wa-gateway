@@ -55,6 +55,11 @@ model User {
   role          Role       @default(operator)
   isActive      Boolean    @default(true) @map("is_active")
   aiCreditBalance Int      @default(0) @map("ai_credit_balance")
+  maxDevices    Int        @default(4) @map("max_devices")
+  broadcastQuotaMonthly  Int       @default(0) @map("broadcast_quota_monthly")
+  broadcastSentThisMonth Int       @default(0) @map("broadcast_sent_this_month")
+  broadcastQuotaResetAt  DateTime? @map("broadcast_quota_reset_at")
+  maxWarmerSessions      Int       @default(1) @map("max_warmer_sessions")
   createdAt     DateTime   @default(now()) @map("created_at")
   devices       Device[]
   apiKeys       ApiKey[]
@@ -83,14 +88,21 @@ model AiCreditTransaction {
   @@map("ai_credit_transactions")
 }
 
+enum CreditProductType {
+  ai_credit
+  broadcast_quota
+  warmer_slot
+}
+
 model CreditPackage {
-  id        String        @id @default(uuid()) @db.Uuid
-  name      String
-  coins     Int
-  priceRp   Int           @map("price_rp")
-  isActive  Boolean       @default(true) @map("is_active")
-  createdAt DateTime      @default(now()) @map("created_at")
-  orders    CreditOrder[]
+  id          String            @id @default(uuid()) @db.Uuid
+  productType CreditProductType @default(ai_credit) @map("product_type")
+  name        String
+  quotaAmount Int               @map("quota_amount")
+  priceRp     Int               @map("price_rp")
+  isActive    Boolean           @default(true) @map("is_active")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  orders      CreditOrder[]
 
   @@map("credit_packages")
 }
@@ -100,13 +112,14 @@ enum CreditOrderStatus {
   paid
   failed
   expired
+  cancelled
 }
 
 model CreditOrder {
   id              String            @id @default(uuid()) @db.Uuid
   userId          String            @db.Uuid @map("user_id")
   packageId       String            @db.Uuid @map("package_id")
-  coins           Int
+  quotaAmount     Int               @map("quota_amount")
   priceRp         Int               @map("price_rp")
   midtransOrderId String            @unique @map("midtrans_order_id")
   snapToken       String?           @map("snap_token")

@@ -7,7 +7,11 @@ import { logAudit } from '../services/audit.service';
 
 const prisma = new PrismaClient();
 
-const USER_SELECT = { id: true, name: true, email: true, role: true, isActive: true, createdAt: true, aiCreditBalance: true };
+const USER_SELECT = {
+  id: true, name: true, email: true, role: true, isActive: true, createdAt: true,
+  aiCreditBalance: true, maxDevices: true,
+  broadcastQuotaMonthly: true, broadcastSentThisMonth: true, maxWarmerSessions: true,
+};
 
 export const listUsers = async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -56,13 +60,18 @@ export const createUser = async (req: AuthenticatedRequest, res: Response) => {
 export const updateUser = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { id } = req.params;
-  const { name, email, password, role, isActive } = req.body;
+  const { name, email, password, role, isActive, maxDevices, broadcastQuotaMonthly, maxWarmerSessions } = req.body;
 
   if (role && !['admin', 'operator', 'viewer'].includes(role)) {
     return res.status(400).json({ error: 'Invalid role' });
   }
   if (password !== undefined && password.length < 6) {
     return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+  for (const [field, value] of Object.entries({ maxDevices, broadcastQuotaMonthly, maxWarmerSessions })) {
+    if (value !== undefined && (typeof value !== 'number' || value < 0)) {
+      return res.status(400).json({ error: `${field} must be a non-negative number` });
+    }
   }
 
   try {
@@ -105,6 +114,9 @@ export const updateUser = async (req: AuthenticatedRequest, res: Response) => {
         passwordHash,
         role: role !== undefined ? role : undefined,
         isActive: isActive !== undefined ? isActive : undefined,
+        maxDevices: maxDevices !== undefined ? maxDevices : undefined,
+        broadcastQuotaMonthly: broadcastQuotaMonthly !== undefined ? broadcastQuotaMonthly : undefined,
+        maxWarmerSessions: maxWarmerSessions !== undefined ? maxWarmerSessions : undefined,
       },
       select: USER_SELECT,
     });

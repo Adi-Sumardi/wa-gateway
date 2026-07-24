@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { CreditProductType, PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -20,6 +20,34 @@ export const topUp = async (actorId: string | null, userId: string, amount: numb
     });
     return updated.aiCreditBalance;
   });
+};
+
+// Single entry point for crediting a paid purchase of any product type -
+// AI credit keeps its spend-tracked ledger (via topUp); broadcast quota and
+// warmer slots are simple caps with no per-use ledger, just an increment.
+export const applyPurchase = async (
+  actorId: string | null,
+  userId: string,
+  productType: CreditProductType,
+  quotaAmount: number,
+  note?: string
+): Promise<number> => {
+  if (productType === 'ai_credit') {
+    return topUp(actorId, userId, quotaAmount, note);
+  }
+  if (productType === 'broadcast_quota') {
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { broadcastQuotaMonthly: { increment: quotaAmount } },
+    });
+    return updated.broadcastQuotaMonthly;
+  }
+  // warmer_slot
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: { maxWarmerSessions: { increment: quotaAmount } },
+  });
+  return updated.maxWarmerSessions;
 };
 
 export const hasBalance = async (userId: string): Promise<boolean> => {

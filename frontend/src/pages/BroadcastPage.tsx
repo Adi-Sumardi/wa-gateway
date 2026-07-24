@@ -42,6 +42,9 @@ interface Props {
   socket: Socket | null;
   addToast: (message: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
   hasPermission: (key: string) => boolean;
+  role: string;
+  broadcastQuotaMonthly: number;
+  broadcastSentThisMonth: number;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -53,7 +56,7 @@ const STATUS_STYLES: Record<string, string> = {
   failed: 'bg-red-100 text-error',
 };
 
-export default function BroadcastPage({ backendUrl, getHeaders, devices, socket, addToast, hasPermission }: Props) {
+export default function BroadcastPage({ backendUrl, getHeaders, devices, socket, addToast, hasPermission, role, broadcastQuotaMonthly, broadcastSentThisMonth }: Props) {
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [templates, setTemplates] = useState<TemplateOption[]>([]);
   const [templateId, setTemplateId] = useState('');
@@ -181,6 +184,11 @@ export default function BroadcastPage({ backendUrl, getHeaders, devices, socket,
       <div>
         <h2 className="text-3xl font-bold text-on-surface font-headline-lg">WA Broadcast</h2>
         <p className="text-on-surface-variant text-sm mt-1">Send a paced, anti-ban bulk message to many recipients at once</p>
+        {role !== 'admin' && (
+          <p className="text-xs font-bold text-primary mt-1">
+            Sisa kuota bulan ini: {Math.max(broadcastQuotaMonthly - broadcastSentThisMonth, 0)} / {broadcastQuotaMonthly} pesan
+          </p>
+        )}
       </div>
 
       {hasPermission('broadcast.manage') && (

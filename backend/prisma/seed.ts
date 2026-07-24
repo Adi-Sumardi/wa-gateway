@@ -74,10 +74,13 @@ async function seedPermissions() {
   console.log('Seeded permissions and default role grants.');
 }
 
-const DEFAULT_PACKAGES: { name: string; coins: number; priceRp: number }[] = [
-  { name: 'Paket Hemat', coins: 100, priceRp: 10000 },
-  { name: 'Paket Reguler', coins: 500, priceRp: 50000 },
-  { name: 'Paket Hemat Besar', coins: 1000, priceRp: 95000 },
+const DEFAULT_PACKAGES: { name: string; productType: 'ai_credit' | 'broadcast_quota' | 'warmer_slot'; quotaAmount: number; priceRp: number }[] = [
+  { name: 'Paket Hemat', productType: 'ai_credit', quotaAmount: 100, priceRp: 10000 },
+  { name: 'Paket Reguler', productType: 'ai_credit', quotaAmount: 500, priceRp: 50000 },
+  { name: 'Paket Hemat Besar', productType: 'ai_credit', quotaAmount: 1000, priceRp: 95000 },
+  { name: 'Kuota Broadcast 1.000 Pesan', productType: 'broadcast_quota', quotaAmount: 1000, priceRp: 50000 },
+  { name: 'Kuota Broadcast 5.000 Pesan', productType: 'broadcast_quota', quotaAmount: 5000, priceRp: 200000 },
+  { name: 'Slot Warmer Tambahan', productType: 'warmer_slot', quotaAmount: 1, priceRp: 30000 },
 ];
 
 async function seedCreditPackages() {
@@ -87,7 +90,7 @@ async function seedCreditPackages() {
       await prisma.creditPackage.create({ data: pkg });
     }
   }
-  console.log('Seeded default AI credit packages.');
+  console.log('Seeded default credit packages (AI credit, broadcast quota, warmer slot).');
 }
 
 async function main() {

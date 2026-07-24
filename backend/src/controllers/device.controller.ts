@@ -41,6 +41,19 @@ export const createDevice = async (req: AuthenticatedRequest, res: Response) => 
   }
 
   try {
+    // Per-member device slot limit - admin is unlimited, matching the
+    // admin-bypass pattern used for AI credits and every ownership check.
+    if (req.user.role !== 'admin') {
+      const [owner, deviceCount] = await Promise.all([
+        prisma.user.findUnique({ where: { id: req.user.id }, select: { maxDevices: true } }),
+        prisma.device.count({ where: { userId: req.user.id } }),
+      ]);
+      const limit = owner?.maxDevices ?? 4;
+      if (deviceCount >= limit) {
+        return res.status(400).json({ error: `Batas maksimal ${limit} device tercapai. Hubungi admin untuk menambah slot.` });
+      }
+    }
+
     const device = await prisma.device.create({
       data: {
         label,

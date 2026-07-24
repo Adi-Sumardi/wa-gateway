@@ -41,9 +41,11 @@ interface Props {
   socket: Socket | null;
   addToast: (message: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
   hasPermission: (key: string) => boolean;
+  role: string;
+  maxWarmerSessions: number;
 }
 
-export default function WarmerPage({ backendUrl, getHeaders, devices, socket, addToast, hasPermission }: Props) {
+export default function WarmerPage({ backendUrl, getHeaders, devices, socket, addToast, hasPermission, role, maxWarmerSessions }: Props) {
   const [sessions, setSessions] = useState<WarmerSession[]>([]);
   const [name, setName] = useState('');
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
@@ -172,6 +174,11 @@ export default function WarmerPage({ backendUrl, getHeaders, devices, socket, ad
       <div>
         <h2 className="text-3xl font-bold text-on-surface font-headline-lg">WA Warmer</h2>
         <p className="text-on-surface-variant text-sm mt-1">Let your own devices chat with each other to build number trust before bulk sending</p>
+        {role !== 'admin' && (
+          <p className="text-xs font-bold text-primary mt-1">
+            Slot sesi aktif: {sessions.filter((s) => s.status === 'active').length} / {maxWarmerSessions}
+          </p>
+        )}
       </div>
 
       {hasPermission('warmer.manage') && (

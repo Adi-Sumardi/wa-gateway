@@ -47,6 +47,10 @@ interface UserData {
   email: string;
   role: string;
   aiCreditBalance?: number;
+  maxDevices?: number;
+  broadcastQuotaMonthly?: number;
+  broadcastSentThisMonth?: number;
+  maxWarmerSessions?: number;
 }
 
 interface Device {
@@ -291,9 +295,19 @@ export default function App() {
       addToast(`Saldo AI habis untuk device "${data.deviceLabel}". Minta admin untuk top up.`, 'error');
     });
 
-    socket.on('credit-updated', (data: { aiCreditBalance: number }) => {
-      setUser(prev => prev ? { ...prev, aiCreditBalance: data.aiCreditBalance } : prev);
-      addToast('Pembayaran berhasil! Saldo koin AI Anda sudah diperbarui.', 'success');
+    socket.on('quota-updated', (data: { productType: 'ai_credit' | 'broadcast_quota' | 'warmer_slot'; newValue: number }) => {
+      setUser(prev => {
+        if (!prev) return prev;
+        if (data.productType === 'ai_credit') return { ...prev, aiCreditBalance: data.newValue };
+        if (data.productType === 'broadcast_quota') return { ...prev, broadcastQuotaMonthly: data.newValue };
+        return { ...prev, maxWarmerSessions: data.newValue };
+      });
+      const labels: Record<string, string> = {
+        ai_credit: 'Saldo koin AI',
+        broadcast_quota: 'Kuota broadcast bulanan',
+        warmer_slot: 'Slot sesi WA Warmer',
+      };
+      addToast(`Pembayaran berhasil! ${labels[data.productType]} Anda sudah diperbarui.`, 'success');
     });
   };
 
@@ -989,6 +1003,9 @@ export default function App() {
                 <div>
                   <h2 className="text-3xl font-bold text-on-surface font-headline-lg">Device Management</h2>
                   <p className="text-on-surface-variant text-sm mt-1">Add and scan sessions to connect WhatsApp numbers</p>
+                  {user.role !== 'admin' && (
+                    <p className="text-xs font-bold text-primary mt-1">{devices.length} / {user.maxDevices ?? 4} slot device terpakai</p>
+                  )}
                 </div>
                 {hasPermission('devices.manage') && (
                   <button
@@ -1321,6 +1338,9 @@ export default function App() {
               socket={socketRef.current}
               addToast={addToast}
               hasPermission={hasPermission}
+              role={user.role}
+              broadcastQuotaMonthly={user.broadcastQuotaMonthly ?? 0}
+              broadcastSentThisMonth={user.broadcastSentThisMonth ?? 0}
             />
           )}
 
@@ -1332,6 +1352,8 @@ export default function App() {
               socket={socketRef.current}
               addToast={addToast}
               hasPermission={hasPermission}
+              role={user.role}
+              maxWarmerSessions={user.maxWarmerSessions ?? 1}
             />
           )}
 
@@ -1352,6 +1374,8 @@ export default function App() {
               addToast={addToast}
               role={user.role}
               aiCreditBalance={user.aiCreditBalance ?? 0}
+              broadcastQuotaMonthly={user.broadcastQuotaMonthly ?? 0}
+              maxWarmerSessions={user.maxWarmerSessions ?? 1}
             />
           )}
 

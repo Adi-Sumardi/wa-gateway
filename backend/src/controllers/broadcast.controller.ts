@@ -20,6 +20,21 @@ export const createBroadcast = async (req: Request, res: Response) => {
   }
 
   try {
+    // Monthly broadcast quota - admin is unlimited. This is a conservative
+    // pre-check using the raw pasted count (before the service's own
+    // dedup/opt-out filtering), so it can never let someone exceed quota;
+    // the real deduped count is used to increment usage below.
+    if (authUser.role !== 'admin') {
+      const owner = await prisma.user.findUnique({
+        where: { id: authUser.id },
+        select: { broadcastQuotaMonthly: true, broadcastSentThisMonth: true },
+      });
+      const remaining = (owner?.broadcastQuotaMonthly ?? 0) - (owner?.broadcastSentThisMonth ?? 0);
+      if (phoneNumbers.length > remaining) {
+        return res.status(400).json({ error: `Kuota broadcast bulan ini tidak cukup. Sisa kuota: ${Math.max(remaining, 0)} pesan.` });
+      }
+    }
+
     const broadcast = await broadcastService.createBroadcast({
       userId: authUser.id,
       isAdmin: authUser.role === 'admin',
@@ -41,6 +56,13 @@ export const createBroadcast = async (req: Request, res: Response) => {
     // Immediate send (no scheduledAt) starts right away.
     if (!scheduledAt) {
       await broadcastService.startBroadcast(broadcast.id);
+    }
+
+    if (authUser.role !== 'admin' && broadcast.targets.length > 0) {
+      await prisma.user.update({
+        where: { id: authUser.id },
+        data: { broadcastSentThisMonth: { increment: broadcast.targets.length } },
+      });
     }
 
     return res.status(201).json(broadcast);

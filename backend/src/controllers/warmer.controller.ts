@@ -91,6 +91,20 @@ export const startWarmer = async (req: Request, res: Response) => {
   });
   if (!session) return res.status(404).json({ error: 'Warmer session not found' });
 
+  // Slot limit is on concurrently ACTIVE sessions, checked at start time -
+  // a session is created 'paused' by default, so this only matters once
+  // someone actually tries to run it. Admin is unlimited.
+  if (authUser.role !== 'admin' && session.status !== 'active') {
+    const [owner, activeCount] = await Promise.all([
+      prisma.user.findUnique({ where: { id: authUser.id }, select: { maxWarmerSessions: true } }),
+      prisma.warmerSession.count({ where: { userId: authUser.id, status: 'active' } }),
+    ]);
+    const limit = owner?.maxWarmerSessions ?? 1;
+    if (activeCount >= limit) {
+      return res.status(400).json({ error: `Batas maksimal ${limit} sesi warmer aktif bersamaan tercapai. Hentikan sesi lain atau beli slot tambahan.` });
+    }
+  }
+
   await warmerService.startWarmer(session.id);
   return res.json({ message: 'Warmer session started' });
 };

@@ -34,7 +34,7 @@ export const createOrder = async (req: AuthenticatedRequest, res: Response) => {
       data: {
         userId: user.id,
         packageId: pkg.id,
-        coins: pkg.coins,
+        quotaAmount: pkg.quotaAmount,
         priceRp: pkg.priceRp,
         midtransOrderId,
         snapToken: token,
@@ -71,7 +71,10 @@ export const handleWebhook = async (req: Request, res: Response) => {
   }
 
   try {
-    const order = await prisma.creditOrder.findUnique({ where: { midtransOrderId: order_id } });
+    const order = await prisma.creditOrder.findUnique({
+      where: { midtransOrderId: order_id },
+      include: { package: true },
+    });
     if (!order) {
       console.warn(`[Midtrans] Notification for unknown order ${order_id}`);
       return res.status(200).json({ message: 'Unknown order, ignored' });
@@ -97,9 +100,19 @@ export const handleWebhook = async (req: Request, res: Response) => {
       });
 
       if (result.count > 0) {
-        const newBalance = await creditService.topUp(null, order.userId, order.coins, `Midtrans order ${order.midtransOrderId}`);
-        logAudit(order.userId, 'credit.midtrans_topup', `Midtrans payment settled for order ${order.midtransOrderId}: +${order.coins} coins`);
-        emitToOwner(order.userId, 'credit-updated', { aiCreditBalance: newBalance });
+        const newValue = await creditService.applyPurchase(
+          null,
+          order.userId,
+          order.package.productType,
+          order.quotaAmount,
+          `Midtrans order ${order.midtransOrderId}`
+        );
+        logAudit(
+          order.userId,
+          'credit.midtrans_topup',
+          `Midtrans payment settled for order ${order.midtransOrderId}: +${order.quotaAmount} ${order.package.productType}`
+        );
+        emitToOwner(order.userId, 'quota-updated', { productType: order.package.productType, newValue });
       }
     } else if (isFailed) {
       await prisma.creditOrder.updateMany({
@@ -117,6 +130,27 @@ export const handleWebhook = async (req: Request, res: Response) => {
   }
 };
 
+export const cancelOrder = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { id } = req.params;
+
+  try {
+    // Atomic guard: only actually cancels if it was still pending, so this
+    // can't race a webhook that just settled the same order as paid.
+    const result = await prisma.creditOrder.updateMany({
+      where: { id, userId: req.user.id, status: 'pending' },
+      data: { status: 'cancelled' },
+    });
+    if (result.count === 0) {
+      return res.status(400).json({ error: 'Order sudah tidak bisa dibatalkan (mungkin sudah dibayar atau kedaluwarsa)' });
+    }
+    return res.json({ message: 'Order dibatalkan' });
+  } catch (err) {
+    console.error('Cancel credit order error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 export const getMyOrders = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   try {
@@ -124,7 +158,7 @@ export const getMyOrders = async (req: AuthenticatedRequest, res: Response) => {
       where: { userId: req.user.id },
       orderBy: { createdAt: 'desc' },
       take: 50,
-      include: { package: { select: { name: true } } },
+      include: { package: { select: { name: true, productType: true } } },
     });
     return res.json(orders);
   } catch (err) {
