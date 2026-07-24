@@ -131,6 +131,78 @@ model CreditOrder {
   @@map("credit_orders")
 }
 
+model BundlePackage {
+  id          String        @id @default(uuid()) @db.Uuid
+  name        String
+  description String?       @db.Text
+  priceRp     Int           @map("price_rp")
+  isActive    Boolean       @default(true) @map("is_active")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  items       BundleItem[]
+  orders      BundleOrder[]
+
+  @@map("bundle_packages")
+}
+
+model BundleItem {
+  id              String            @id @default(uuid()) @db.Uuid
+  bundlePackageId String            @db.Uuid @map("bundle_package_id")
+  productType     CreditProductType @map("product_type")
+  quotaAmount     Int               @map("quota_amount")
+  bundlePackage   BundlePackage     @relation(fields: [bundlePackageId], references: [id], onDelete: Cascade)
+
+  @@map("bundle_items")
+}
+
+model BundleOrder {
+  id              String            @id @default(uuid()) @db.Uuid
+  userId          String            @db.Uuid @map("user_id")
+  bundlePackageId String            @db.Uuid @map("bundle_package_id")
+  priceRp         Int               @map("price_rp")
+  midtransOrderId String            @unique @map("midtrans_order_id")
+  snapToken       String?           @map("snap_token")
+  status          CreditOrderStatus @default(pending)
+  createdAt       DateTime          @default(now()) @map("created_at")
+  paidAt          DateTime?         @map("paid_at")
+  bundlePackage   BundlePackage     @relation(fields: [bundlePackageId], references: [id])
+  items           BundleOrderItem[]
+
+  @@map("bundle_orders")
+}
+
+// Snapshot of BundleItem at purchase time, so a later admin edit to the
+// bundle's contents doesn't change what an already-pending/paid order grants.
+model BundleOrderItem {
+  id            String            @id @default(uuid()) @db.Uuid
+  bundleOrderId String            @db.Uuid @map("bundle_order_id")
+  productType   CreditProductType @map("product_type")
+  quotaAmount   Int               @map("quota_amount")
+  bundleOrder   BundleOrder       @relation(fields: [bundleOrderId], references: [id], onDelete: Cascade)
+
+  @@map("bundle_order_items")
+}
+
+enum LeadStatus {
+  new
+  contacted
+  converted
+  closed
+}
+
+model Lead {
+  id              String     @id @default(uuid()) @db.Uuid
+  name            String
+  phone           String
+  email           String?
+  packageInterest String     @map("package_interest")
+  message         String?    @db.Text
+  status          LeadStatus @default(new)
+  notes           String?    @db.Text
+  createdAt       DateTime   @default(now()) @map("created_at")
+
+  @@map("leads")
+}
+
 model Device {
   id              String       @id @default(uuid()) @db.Uuid
   userId          String       @db.Uuid @map("user_id")

@@ -177,6 +177,7 @@ export default function WarmerPage({ backendUrl, getHeaders, devices, socket, ad
         {role !== 'admin' && (
           <p className="text-xs font-bold text-primary mt-1">
             Slot sesi aktif: {sessions.filter((s) => s.status === 'active').length} / {maxWarmerSessions}
+            <span className="font-normal text-on-surface-variant"> (jumlah sesi yang boleh jalan bersamaan - tiap sesi tetap butuh minimal 2 device)</span>
           </p>
         )}
       </div>

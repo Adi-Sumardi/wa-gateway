@@ -26,6 +26,9 @@ import * as templateController from './controllers/template.controller';
 import * as creditController from './controllers/credit.controller';
 import * as creditPackageController from './controllers/credit-package.controller';
 import * as creditOrderController from './controllers/credit-order.controller';
+import * as bundlePackageController from './controllers/bundle-package.controller';
+import * as bundleOrderController from './controllers/bundle-order.controller';
+import * as leadController from './controllers/lead.controller';
 
 const app = express();
 const httpServer = createServer(app);
@@ -50,6 +53,7 @@ app.get('/health', (req, res) => {
 
 // Authentication Routes
 app.post('/api/auth/login', authController.login);
+app.post('/api/auth/register', authController.register);
 app.get('/api/auth/me', authenticateJWT, authController.me);
 app.get('/api/permissions/me', authenticateJWT, userController.getMyPermissions);
 
@@ -78,6 +82,25 @@ app.post('/api/credit-orders/:id/cancel', authenticateJWT, creditOrderController
 // Public: called server-to-server by Midtrans, authenticated via signature
 // verification inside the handler, not a JWT.
 app.post('/api/midtrans/webhook', creditOrderController.handleWebhook);
+
+// Bundle Packages ("Paket Coba" etc.) - grant multiple product types from a
+// single purchase. Public listing feeds the /promo landing page.
+app.get('/api/bundle-packages', bundlePackageController.listPublicBundles);
+app.get('/api/bundle-packages/admin', authenticateJWT, requirePermission('credits.manage'), bundlePackageController.listAdminBundles);
+app.post('/api/bundle-packages', authenticateJWT, requirePermission('credits.manage'), bundlePackageController.createBundle);
+app.patch('/api/bundle-packages/:id', authenticateJWT, requirePermission('credits.manage'), bundlePackageController.updateBundle);
+app.delete('/api/bundle-packages/:id', authenticateJWT, requirePermission('credits.manage'), bundlePackageController.deleteBundle);
+
+app.post('/api/bundle-orders', authenticateJWT, bundleOrderController.createOrder);
+app.get('/api/bundle-orders/me', authenticateJWT, bundleOrderController.getMyOrders);
+app.post('/api/bundle-orders/:id/cancel', authenticateJWT, bundleOrderController.cancelOrder);
+app.post('/api/midtrans/bundle-webhook', bundleOrderController.handleWebhook);
+
+// Leads - manual-fulfillment offers (e.g. "Paket Pasangin") captured from the
+// public landing page, followed up by admin/sales.
+app.post('/api/leads', leadController.createLead);
+app.get('/api/leads', authenticateJWT, requirePermission('leads.view'), leadController.listLeads);
+app.patch('/api/leads/:id', authenticateJWT, requirePermission('leads.view'), leadController.updateLeadStatus);
 
 // Device Management Routes
 app.get('/api/devices', authenticateJWT, requirePermission('devices.view'), deviceController.listDevices);

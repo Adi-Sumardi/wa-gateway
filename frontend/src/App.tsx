@@ -31,13 +31,16 @@ import {
   Users,
   Contact as ContactIcon,
   ArrowRightLeft,
-  Coins
+  Coins,
+  UserPlus
 } from 'lucide-react';
 import BroadcastPage from './pages/BroadcastPage';
 import WarmerPage from './pages/WarmerPage';
 import UsersRolesPage from './pages/UsersRolesPage';
 import ContactsPage from './pages/ContactsPage';
 import TopUpPage from './pages/TopUpPage';
+import LeadsPage from './pages/LeadsPage';
+import LandingPage from './pages/LandingPage';
 
 const BACKEND_URL = (import.meta as any).env?.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:5001`;
 
@@ -108,6 +111,14 @@ interface WebhookLog {
 }
 
 export default function App() {
+  // Landing page is the default entry point for anyone not logged in -
+  // /login is the one path that always falls through to the dashboard's own
+  // login screen below. Logged-in visitors never see this (handled further
+  // down once the token/user hooks below have run).
+  if (!localStorage.getItem('token') && window.location.pathname !== '/login') {
+    return <LandingPage backendUrl={BACKEND_URL} />;
+  }
+
   // Auth state
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [user, setUser] = useState<UserData | null>(null);
@@ -117,7 +128,7 @@ export default function App() {
   const [showPassword, setShowPassword] = useState(false);
 
   // Navigation & Data state
-  const [activeTab, setActiveTab] = useState<'overview' | 'devices' | 'messages' | 'broadcast' | 'warmer' | 'settings' | 'users' | 'contacts' | 'topup'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'devices' | 'messages' | 'broadcast' | 'warmer' | 'settings' | 'users' | 'contacts' | 'topup' | 'leads'>('overview');
   const [permissions, setPermissions] = useState<string[]>([]);
   const hasPermission = (key: string) => permissions.includes(key);
   const [activeDocLanguage, setActiveDocLanguage] = useState<'curl' | 'nodejs' | 'python' | 'php'>('curl');
@@ -188,26 +199,33 @@ export default function App() {
 
       if (devsRes.status === 401) return handleLogout();
 
-      setDevices(await devsRes.json());
-      setLogs(await msgsRes.json());
-      setApiKeys(await keysRes.json());
-      setWebhooks(await hooksRes.json());
-      setWebhookLogs(await wLogsRes.json());
-      setLinks(await linksRes.json());
+      // Each endpoint is gated by its own permission (apikeys.manage,
+      // webhooks.manage, links.manage) which not every role has by default -
+      // a 403 body is an error object, not an array, so only apply it when
+      // the request actually succeeded or the corresponding state stays [].
+      if (devsRes.ok) setDevices(await devsRes.json());
+      if (msgsRes.ok) setLogs(await msgsRes.json());
+      if (keysRes.ok) setApiKeys(await keysRes.json());
+      if (hooksRes.ok) setWebhooks(await hooksRes.json());
+      if (wLogsRes.ok) setWebhookLogs(await wLogsRes.json());
+      if (linksRes.ok) setLinks(await linksRes.json());
     } catch (e) {
       console.error('Failed to load dashboard data:', e);
     }
   };
 
   const handleLogout = () => {
+    // Read by LandingPage on mount to show a one-time "logged out" notice.
+    sessionStorage.setItem('flashMessage', 'Anda berhasil logout.');
     localStorage.removeItem('token');
-    setToken(null);
-    setUser(null);
-    setPermissions([]);
     if (socketRef.current) {
       socketRef.current.disconnect();
       socketRef.current = null;
     }
+    // Hard navigation instead of just clearing state - guarantees a clean
+    // remount at "/" every time (also resets a stale /login URL left over
+    // from the login flow) rather than relying on a same-tree re-render.
+    window.location.href = '/';
   };
 
   const loadPermissions = async () => {
@@ -324,6 +342,12 @@ export default function App() {
       if (!res.ok) throw new Error(data.error || 'Login failed');
       localStorage.setItem('token', data.token);
       setToken(data.token);
+      addToast('Login berhasil! Selamat datang kembali.', 'success');
+      // Reset the URL from /login back to / now that we're authenticated, so
+      // a later logout's top-level check correctly lands on the landing page.
+      if (window.location.pathname !== '/') {
+        window.history.replaceState({}, '', '/');
+      }
     } catch (err: any) {
       setLoginError(err.message);
     }
@@ -586,14 +610,17 @@ export default function App() {
 
         <main className="w-full max-w-[960px] bg-surface-container-lowest rounded-[32px] shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[600px] border border-outline-variant/30">
           <div className="flex-1 p-8 md:p-12 flex flex-col justify-center">
-            <div className="mb-8 flex items-center gap-3">
-              <img src="/icon-192.png" alt="SendaGo Logo" className="w-10 h-10 object-contain rounded-xl" />
-              <div>
-                <h1 className="font-headline-md text-2xl font-bold text-primary leading-none">Gateway Pro</h1>
-                <p className="font-label-md text-xs text-on-surface-variant uppercase tracking-widest mt-1">SendaGo Engine</p>
+            <div className="mb-8 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <img src="/icon-192.png" alt="SendaGo Logo" className="w-10 h-10 object-contain rounded-xl" />
+                <div>
+                  <h1 className="font-headline-md text-2xl font-bold text-primary leading-none">Gateway Pro</h1>
+                  <p className="font-label-md text-xs text-on-surface-variant uppercase tracking-widest mt-1">SendaGo Engine</p>
+                </div>
               </div>
+              <a href="/" className="text-xs font-semibold text-on-surface-variant hover:text-primary transition-colors">← Beranda</a>
             </div>
-            
+
             <div className="mb-8">
               <h2 className="text-3xl font-bold text-on-surface mb-2 font-headline-lg">Welcome back</h2>
               <p className="text-on-surface-variant font-body-md">Log in to manage your high-volume WhatsApp communication.</p>
@@ -693,12 +720,12 @@ export default function App() {
       {isSidebarOpen && (
         <div 
           onClick={() => setIsSidebarOpen(false)}
-          className="fixed inset-0 bg-zinc-950/40 backdrop-blur-[1px] z-40 md:hidden animate-fade-in"
+          className="fixed inset-0 bg-zinc-950/40 backdrop-blur-[1px] z-40 lg:hidden animate-fade-in"
         />
       )}
 
       {/* SideBar */}
-      <aside className={`fixed left-0 top-0 h-full w-sidebar-width bg-surface-container-low border-r border-outline-variant flex flex-col py-6 z-50 transition-transform duration-200 ease-in-out md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed left-0 top-0 h-full w-sidebar-width bg-surface-container-low border-r border-outline-variant flex flex-col py-6 z-50 transition-transform duration-200 ease-in-out lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="px-6 mb-12">
           <div className="flex items-center gap-3">
             <img src="/icon-192.png" alt="SendaGo Logo" className="w-10 h-10 object-contain rounded-xl" />
@@ -779,6 +806,15 @@ export default function App() {
               <span className="text-sm">Users & Roles</span>
             </button>
           )}
+          {hasPermission('leads.view') && (
+            <button
+              onClick={() => { setActiveTab('leads'); setIsSidebarOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-semibold ${activeTab === 'leads' ? 'bg-primary-container text-on-primary-container sidebar-active-pill' : 'text-on-surface-variant hover:bg-surface-container-high hover:text-primary'}`}
+            >
+              <UserPlus className="w-5 h-5" />
+              <span className="text-sm">Leads</span>
+            </button>
+          )}
         </nav>
 
         <div className="px-3 space-y-4">
@@ -814,13 +850,13 @@ export default function App() {
       </aside>
 
       {/* Main Panel */}
-      <div className="flex-1 pl-0 md:pl-sidebar-width min-w-0">
+      <div className="flex-1 pl-0 lg:pl-sidebar-width min-w-0">
         {/* Top bar */}
         <header className="h-16 border-b border-outline-variant flex justify-between items-center px-4 md:px-8 bg-surface-container-lowest sticky top-0 z-40">
           <div className="flex items-center gap-2 md:gap-4">
-            <button 
+            <button
               onClick={() => setIsSidebarOpen(true)}
-              className="p-2 -ml-2 rounded-xl text-on-surface-variant hover:bg-surface-container-high md:hidden"
+              className="p-2 -ml-2 rounded-xl text-on-surface-variant hover:bg-surface-container-high lg:hidden"
             >
               <Menu className="w-5 h-5" />
             </button>
@@ -1386,6 +1422,14 @@ export default function App() {
               addToast={addToast}
               currentUserId={user.id}
               setConfirmDialog={setConfirmDialog}
+            />
+          )}
+
+          {activeTab === 'leads' && hasPermission('leads.view') && (
+            <LeadsPage
+              backendUrl={BACKEND_URL}
+              getHeaders={getHeaders}
+              addToast={addToast}
             />
           )}
 

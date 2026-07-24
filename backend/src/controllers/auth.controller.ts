@@ -49,6 +49,46 @@ export const login = async (req: AuthenticatedRequest, res: Response) => {
   }
 };
 
+// Public self-service signup - used by the landing page so a brand-new
+// visitor can register and immediately proceed to a bundle checkout without
+// waiting for an admin to create their account manually.
+export const register = async (req: AuthenticatedRequest, res: Response) => {
+  const { name, email, password } = req.body;
+
+  if (!name || !email || !password) {
+    return res.status(400).json({ error: 'Nama, email, dan password wajib diisi' });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Password minimal 8 karakter' });
+  }
+
+  try {
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return res.status(409).json({ error: 'Email sudah terdaftar, silakan login' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = await prisma.user.create({
+      data: { name, email, passwordHash, role: 'operator', isActive: true },
+    });
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    return res.status(201).json({
+      token,
+      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+    });
+  } catch (err) {
+    console.error('Register error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 export const me = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
     return res.status(401).json({ error: 'Unauthorized' });

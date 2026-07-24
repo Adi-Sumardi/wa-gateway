@@ -23,6 +23,7 @@ const PERMISSIONS: { key: string; label: string; category: string }[] = [
   { key: 'templates.manage', label: 'Manage message templates', category: 'Templates' },
   { key: 'audit.view', label: 'View audit log', category: 'Users' },
   { key: 'credits.manage', label: 'Manage AI credits / top-ups', category: 'Users' },
+  { key: 'leads.view', label: 'View leads from the landing page', category: 'Leads' },
 ];
 
 // operator/viewer defaults; admin is always fully granted regardless of this table
@@ -93,6 +94,45 @@ async function seedCreditPackages() {
   console.log('Seeded default credit packages (AI credit, broadcast quota, warmer slot).');
 }
 
+// Standalone these items would cost roughly Rp10rb (100 koin) + Rp45rb
+// (1.000 pesan broadcast) + Rp50rb (1 slot warmer) ~= Rp105rb via the
+// packages above - pricing the trial bundle at Rp75rb gives a genuine ~30%
+// "coba dulu" discount as the acquisition incentive.
+const DEFAULT_BUNDLES: {
+  name: string;
+  description: string;
+  priceRp: number;
+  items: { productType: 'ai_credit' | 'broadcast_quota' | 'warmer_slot'; quotaAmount: number }[];
+}[] = [
+  {
+    name: 'Paket Coba',
+    description: '100 koin AI Bot, 1.000 pesan broadcast, dan 1 slot WA Warmer - cara termurah untuk mencoba semua fitur SendaGo.',
+    priceRp: 75000,
+    items: [
+      { productType: 'ai_credit', quotaAmount: 100 },
+      { productType: 'broadcast_quota', quotaAmount: 1000 },
+      { productType: 'warmer_slot', quotaAmount: 1 },
+    ],
+  },
+];
+
+async function seedBundlePackages() {
+  for (const bundle of DEFAULT_BUNDLES) {
+    const exists = await prisma.bundlePackage.findFirst({ where: { name: bundle.name } });
+    if (!exists) {
+      await prisma.bundlePackage.create({
+        data: {
+          name: bundle.name,
+          description: bundle.description,
+          priceRp: bundle.priceRp,
+          items: { create: bundle.items },
+        },
+      });
+    }
+  }
+  console.log('Seeded default bundle packages (Paket Coba).');
+}
+
 async function main() {
   // Check if admin user exists
   const existingAdmin = await prisma.user.findUnique({
@@ -117,6 +157,7 @@ async function main() {
 
   await seedPermissions();
   await seedCreditPackages();
+  await seedBundlePackages();
 }
 
 main()

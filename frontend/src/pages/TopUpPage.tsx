@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Coins, ShoppingCart, PackagePlus } from 'lucide-react';
+import { Coins, ShoppingCart, PackagePlus, Gift } from 'lucide-react';
 
 type ProductType = 'ai_credit' | 'broadcast_quota' | 'warmer_slot';
 
@@ -11,6 +11,26 @@ interface PackageRow {
   priceRp: number;
   isActive: boolean;
 }
+
+interface BundleItemRow {
+  productType: ProductType;
+  quotaAmount: number;
+}
+
+interface BundleRow {
+  id: string;
+  name: string;
+  description: string | null;
+  priceRp: number;
+  isActive: boolean;
+  items: BundleItemRow[];
+}
+
+const PRODUCT_TYPE_LABEL: Record<ProductType, string> = {
+  ai_credit: 'koin AI',
+  broadcast_quota: 'pesan broadcast',
+  warmer_slot: 'slot warmer',
+};
 
 interface OrderRow {
   id: string;
@@ -81,6 +101,43 @@ export default function TopUpPage({ backendUrl, getHeaders, addToast, role, aiCr
   const [editPkgPrice, setEditPkgPrice] = useState('');
   const [savingPkg, setSavingPkg] = useState(false);
 
+  const [bundles, setBundles] = useState<BundleRow[]>([]);
+  const [buyingBundleId, setBuyingBundleId] = useState<string | null>(null);
+
+  const fetchBundles = async () => {
+    try {
+      const res = await fetch(`${backendUrl}/api/bundle-packages`, { headers: getHeaders() });
+      if (res.ok) setBundles(await res.json());
+    } catch (err) {
+      console.error('Failed to load bundle packages:', err);
+    }
+  };
+
+  const handleBuyBundle = async (bundle: BundleRow) => {
+    setBuyingBundleId(bundle.id);
+    try {
+      const res = await fetch(`${backendUrl}/api/bundle-orders`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ bundleId: bundle.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create order');
+
+      await loadSnapScript();
+      (window as any).snap.pay(data.token, {
+        onSuccess: () => addToast('Pembayaran berhasil! Semua kuota di paket ini akan otomatis diperbarui.', 'success'),
+        onPending: () => addToast('Pembayaran sedang diproses.', 'info'),
+        onError: () => addToast('Pembayaran gagal.', 'error'),
+        onClose: () => addToast('Pembayaran dibatalkan.', 'info'),
+      });
+    } catch (err: any) {
+      addToast(err.message || 'Gagal memulai pembayaran', 'error');
+    } finally {
+      setBuyingBundleId(null);
+    }
+  };
+
   const fetchPackages = async () => {
     try {
       const res = await fetch(`${backendUrl}/api/credit-packages`, { headers: getHeaders() });
@@ -102,6 +159,7 @@ export default function TopUpPage({ backendUrl, getHeaders, addToast, role, aiCr
   useEffect(() => {
     fetchPackages();
     fetchOrders();
+    fetchBundles();
   }, []);
 
   const handleBuy = async (pkg: PackageRow) => {
@@ -260,12 +318,41 @@ export default function TopUpPage({ backendUrl, getHeaders, addToast, role, aiCr
         <p className="text-on-surface-variant text-sm mt-1">Isi koin AI, kuota broadcast, atau slot WA Warmer</p>
       </div>
 
-      <div className="flex gap-2">
+      {bundles.filter((b) => b.isActive).length > 0 && (
+        <div className="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-6 shadow-sm space-y-4">
+          <h3 className="font-bold text-sm flex items-center gap-2">
+            <Gift className="w-5 h-5" /> Paket Bundling
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {bundles.filter((b) => b.isActive).map((bundle) => (
+              <div key={bundle.id} className="border border-outline-variant/50 rounded-xl p-4 bg-surface-container-lowest space-y-2">
+                <p className="font-bold text-on-surface">{bundle.name}</p>
+                {bundle.description && <p className="text-xs text-on-surface-variant">{bundle.description}</p>}
+                <ul className="text-xs text-on-surface-variant space-y-0.5">
+                  {bundle.items.map((item, i) => (
+                    <li key={i}>+ {item.quotaAmount} {PRODUCT_TYPE_LABEL[item.productType]}</li>
+                  ))}
+                </ul>
+                <p className="text-xl font-bold text-primary">{formatRp(bundle.priceRp)}</p>
+                <button
+                  onClick={() => handleBuyBundle(bundle)}
+                  disabled={buyingBundleId === bundle.id}
+                  className="w-full bg-primary text-on-primary py-2 rounded-xl font-bold text-xs disabled:opacity-50"
+                >
+                  {buyingBundleId === bundle.id ? 'Memproses...' : 'Beli'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2">
         {PRODUCT_TABS.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveType(tab.key)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider ${activeType === tab.key ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface-variant border border-outline-variant/30'}`}
+            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider whitespace-nowrap ${activeType === tab.key ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface-variant border border-outline-variant/30'}`}
           >
             {tab.label}
           </button>
@@ -273,7 +360,7 @@ export default function TopUpPage({ backendUrl, getHeaders, addToast, role, aiCr
       </div>
 
       {role !== 'admin' && (
-        <div className="bg-primary-container/40 border border-primary/30 rounded-2xl p-6 flex items-center justify-between">
+        <div className="bg-primary-container/40 border border-primary/30 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
           <span className="font-bold text-on-surface">{balanceForTab[activeType].label}</span>
           <span className="text-2xl font-bold text-primary">{balanceForTab[activeType].value}</span>
         </div>
