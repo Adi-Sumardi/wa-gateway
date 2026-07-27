@@ -1408,6 +1408,7 @@ export default function App() {
               backendUrl={BACKEND_URL}
               getHeaders={getHeaders}
               addToast={addToast}
+              setConfirmDialog={setConfirmDialog}
               role={user.role}
               aiCreditBalance={user.aiCreditBalance ?? 0}
               broadcastQuotaMonthly={user.broadcastQuotaMonthly ?? 0}

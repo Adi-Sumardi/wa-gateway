@@ -46,6 +46,7 @@ interface Props {
   backendUrl: string;
   getHeaders: () => Record<string, string>;
   addToast: (message: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
+  setConfirmDialog: (dialog: { title: string; message: string; onConfirm: () => void } | null) => void;
   role: string;
   aiCreditBalance: number;
   broadcastQuotaMonthly: number;
@@ -81,7 +82,7 @@ const loadSnapScript = (): Promise<void> => {
   });
 };
 
-export default function TopUpPage({ backendUrl, getHeaders, addToast, role, aiCreditBalance, broadcastQuotaMonthly, maxWarmerSessions }: Props) {
+export default function TopUpPage({ backendUrl, getHeaders, addToast, setConfirmDialog, role, aiCreditBalance, broadcastQuotaMonthly, maxWarmerSessions }: Props) {
   const [activeType, setActiveType] = useState<ProductType>('ai_credit');
   const [packages, setPackages] = useState<PackageRow[]>([]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
@@ -270,24 +271,30 @@ export default function TopUpPage({ backendUrl, getHeaders, addToast, role, aiCr
     }
   };
 
-  const deletePackage = async (pkg: PackageRow) => {
-    if (!window.confirm(`Hapus paket "${pkg.name}"? Kalau paket ini sudah pernah dibeli, akan dinonaktifkan saja (tidak dihapus permanen).`)) return;
-    try {
-      const res = await fetch(`${backendUrl}/api/credit-packages/${pkg.id}`, {
-        method: 'DELETE',
-        headers: getHeaders(),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to delete package');
-      if (data.deleted) {
-        setPackages((prev) => prev.filter((p) => p.id !== pkg.id));
-      } else {
-        setPackages((prev) => prev.map((p) => (p.id === pkg.id ? { ...p, isActive: false } : p)));
-      }
-      addToast(data.message, data.deleted ? 'success' : 'info');
-    } catch (err: any) {
-      addToast(err.message || 'Failed to delete package', 'error');
-    }
+  const deletePackage = (pkg: PackageRow) => {
+    setConfirmDialog({
+      title: 'Hapus Paket',
+      message: `Hapus paket "${pkg.name}"? Kalau paket ini belum pernah dibeli, akan dihapus permanen. Kalau sudah pernah dibeli, akan dinonaktifkan saja supaya riwayat pembelian lama tetap aman.`,
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          const res = await fetch(`${backendUrl}/api/credit-packages/${pkg.id}`, {
+            method: 'DELETE',
+            headers: getHeaders(),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Failed to delete package');
+          if (data.deleted) {
+            setPackages((prev) => prev.filter((p) => p.id !== pkg.id));
+          } else {
+            setPackages((prev) => prev.map((p) => (p.id === pkg.id ? { ...p, isActive: false } : p)));
+          }
+          addToast(data.message, data.deleted ? 'success' : 'info');
+        } catch (err: any) {
+          addToast(err.message || 'Failed to delete package', 'error');
+        }
+      },
+    });
   };
 
   const openEditPackage = (pkg: PackageRow) => {
