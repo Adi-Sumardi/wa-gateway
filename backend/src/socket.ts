@@ -334,7 +334,15 @@ export const initSocket = (server: HTTPServer) => {
                 if (aiReply.trim().toUpperCase() === NO_REPLY_SENTINEL) {
                   console.log(`[AI] Abstained from replying to ${data.from} (not a genuine question)`);
                 } else {
-                  if (isMetered) await consumeCredit(device.userId);
+                  if (isMetered) {
+                    const newBalance = await consumeCredit(device.userId);
+                    // Push the updated balance live - without this the
+                    // dashboard only shows the new number after a manual
+                    // reload, even though it was already deducted correctly.
+                    if (newBalance !== null) {
+                      emitToOwner(device.userId, 'quota-updated', { productType: 'ai_credit', newValue: newBalance });
+                    }
+                  }
                   // Create outbound message in DB
                   const outMsg = await prisma.message.create({
                     data: {

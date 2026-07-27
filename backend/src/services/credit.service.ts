@@ -56,19 +56,22 @@ export const hasBalance = async (userId: string): Promise<boolean> => {
 };
 
 // Atomic decrement guarded in the WHERE clause (gte: 1) so two concurrent AI
-// replies for the same user can never push the balance negative.
-export const consumeCredit = async (userId: string): Promise<boolean> => {
+// replies for the same user can never push the balance negative. Returns the
+// new balance (so the caller can push a live update to the dashboard) or
+// null if there was nothing left to consume.
+export const consumeCredit = async (userId: string): Promise<number | null> => {
   return prisma.$transaction(async (tx) => {
     const result = await tx.user.updateMany({
       where: { id: userId, aiCreditBalance: { gte: 1 } },
       data: { aiCreditBalance: { decrement: 1 } },
     });
-    if (result.count === 0) return false;
+    if (result.count === 0) return null;
 
     const user = await tx.user.findUnique({ where: { id: userId }, select: { aiCreditBalance: true } });
+    const balanceAfter = user?.aiCreditBalance ?? 0;
     await tx.aiCreditTransaction.create({
-      data: { userId, amount: -1, balanceAfter: user?.aiCreditBalance ?? 0, type: 'consumption' },
+      data: { userId, amount: -1, balanceAfter, type: 'consumption' },
     });
-    return true;
+    return balanceAfter;
   });
 };
