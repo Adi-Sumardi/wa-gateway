@@ -270,6 +270,26 @@ export default function TopUpPage({ backendUrl, getHeaders, addToast, role, aiCr
     }
   };
 
+  const deletePackage = async (pkg: PackageRow) => {
+    if (!window.confirm(`Hapus paket "${pkg.name}"? Kalau paket ini sudah pernah dibeli, akan dinonaktifkan saja (tidak dihapus permanen).`)) return;
+    try {
+      const res = await fetch(`${backendUrl}/api/credit-packages/${pkg.id}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete package');
+      if (data.deleted) {
+        setPackages((prev) => prev.filter((p) => p.id !== pkg.id));
+      } else {
+        setPackages((prev) => prev.map((p) => (p.id === pkg.id ? { ...p, isActive: false } : p)));
+      }
+      addToast(data.message, data.deleted ? 'success' : 'info');
+    } catch (err: any) {
+      addToast(err.message || 'Failed to delete package', 'error');
+    }
+  };
+
   const openEditPackage = (pkg: PackageRow) => {
     setEditingPkgId(pkg.id);
     setEditPkgName(pkg.name);
@@ -537,6 +557,12 @@ export default function TopUpPage({ backendUrl, getHeaders, addToast, role, aiCr
                             className={`px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase ${pkg.isActive ? 'bg-error-container text-error' : 'bg-primary-container text-on-primary-container'}`}
                           >
                             {pkg.isActive ? 'Deactivate' : 'Activate'}
+                          </button>
+                          <button
+                            onClick={() => deletePackage(pkg)}
+                            className="px-3 py-1.5 bg-error text-on-error rounded-xl font-bold text-[10px] uppercase"
+                          >
+                            Hapus
                           </button>
                         </td>
                       </tr>

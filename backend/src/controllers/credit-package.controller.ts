@@ -75,10 +75,21 @@ export const deletePackage = async (req: AuthenticatedRequest, res: Response) =>
     const pkg = await prisma.creditPackage.findUnique({ where: { id } });
     if (!pkg) return res.status(404).json({ error: 'Package not found' });
 
-    // Past orders reference this package (no cascade) - deactivate instead
-    // of hard-deleting so order history stays intact.
+    // Only hard-delete if nothing references it yet - past orders have no
+    // cascade, so deleting a referenced package would orphan order history.
+    // Otherwise fall back to deactivating so it just stops appearing to
+    // buyers without breaking anything that already points at it.
+    const orderCount = await prisma.creditOrder.count({ where: { packageId: id } });
+    if (orderCount === 0) {
+      await prisma.creditPackage.delete({ where: { id } });
+      return res.json({ message: 'Package deleted', deleted: true });
+    }
+
     await prisma.creditPackage.update({ where: { id }, data: { isActive: false } });
-    return res.json({ message: 'Package deactivated' });
+    return res.json({
+      message: `Package sudah pernah dibeli (${orderCount}x), tidak bisa dihapus permanen - dinonaktifkan sebagai gantinya`,
+      deleted: false,
+    });
   } catch (err) {
     console.error('Delete credit package error:', err);
     return res.status(500).json({ error: 'Internal server error' });
