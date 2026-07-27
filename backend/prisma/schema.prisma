@@ -85,6 +85,7 @@ model AiCreditTransaction {
   createdBy    String?                @db.Uuid @map("created_by")
   createdAt    DateTime               @default(now()) @map("created_at")
 
+  @@index([userId])
   @@map("ai_credit_transactions")
 }
 
@@ -140,6 +141,7 @@ model CreditOrder {
   paidAt          DateTime?         @map("paid_at")
   package         CreditPackage?    @relation(fields: [packageId], references: [id], onDelete: SetNull)
 
+  @@index([userId])
   @@map("credit_orders")
 }
 
@@ -179,6 +181,7 @@ model BundleOrder {
   bundlePackage   BundlePackage     @relation(fields: [bundlePackageId], references: [id])
   items           BundleOrderItem[]
 
+  @@index([userId])
   @@map("bundle_orders")
 }
 
@@ -212,6 +215,8 @@ model Lead {
   notes           String?    @db.Text
   createdAt       DateTime   @default(now()) @map("created_at")
 
+  @@index([status])
+  @@index([createdAt])
   @@map("leads")
 }
 
@@ -238,6 +243,7 @@ model Device {
   broadcasts      Broadcast[]
   warmerDevices   WarmerDevice[]
 
+  @@index([userId])
   @@map("devices")
 }
 
@@ -280,6 +286,7 @@ model ContactGroupMember {
   group     ContactGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   @@unique([contactId, groupId])
+  @@index([groupId])
   @@map("contact_group_members")
 }
 
@@ -293,6 +300,7 @@ model Template {
   createdAt  DateTime    @default(now()) @map("created_at")
   broadcasts Broadcast[]
 
+  @@index([userId])
   @@map("templates")
 }
 
@@ -316,6 +324,8 @@ model Broadcast {
   messages         Message[]
   targets          BroadcastTarget[]
 
+  @@index([createdBy])
+  @@index([deviceId])
   @@map("broadcasts")
 }
 
@@ -330,6 +340,8 @@ model BroadcastTarget {
   broadcast    Broadcast     @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
   contact      Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
+  @@index([broadcastId])
+  @@index([contactId])
   @@map("broadcast_targets")
 }
 
@@ -351,6 +363,9 @@ model Message {
   contact      Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
   broadcast    Broadcast?       @relation(fields: [broadcastId], references: [id], onDelete: SetNull)
 
+  @@index([deviceId])
+  @@index([contactId])
+  @@index([createdAt])
   @@map("messages")
 }
 
@@ -371,6 +386,7 @@ model WarmerSession {
   devices            WarmerDevice[]
   logs               WarmerLog[]
 
+  @@index([userId])
   @@map("warmer_sessions")
 }
 
@@ -382,6 +398,7 @@ model WarmerDevice {
   device          Device        @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 
   @@unique([warmerSessionId, deviceId])
+  @@index([deviceId])
   @@map("warmer_devices")
 }
 
@@ -396,6 +413,7 @@ model WarmerLog {
   createdAt       DateTime      @default(now()) @map("created_at")
   warmerSession   WarmerSession @relation(fields: [warmerSessionId], references: [id], onDelete: Cascade)
 
+  @@index([warmerSessionId])
   @@map("warmer_logs")
 }
 
@@ -410,6 +428,7 @@ model ApiKey {
   createdAt  DateTime  @default(now()) @map("created_at")
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
   @@map("api_keys")
 }
 
@@ -422,6 +441,7 @@ model Webhook {
   createdAt  DateTime     @default(now()) @map("created_at")
   logs       WebhookLog[]
 
+  @@index([userId])
   @@map("webhooks")
 }
 
@@ -434,6 +454,7 @@ model WebhookLog {
   createdAt    DateTime @default(now()) @map("created_at")
   webhook      Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
 
+  @@index([webhookId])
   @@map("webhook_logs")
 }
 
@@ -464,6 +485,8 @@ model AuditLog {
   createdAt DateTime @default(now()) @map("created_at")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+  @@index([createdAt])
   @@map("audit_logs")
 }
 
@@ -476,5 +499,6 @@ model LinkTracker {
   createdAt     DateTime  @default(now()) @map("created_at")
   lastClickedAt DateTime? @map("last_clicked_at")
 
+  @@index([userId])
   @@map("link_trackers")
 }

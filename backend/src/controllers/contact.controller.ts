@@ -8,11 +8,36 @@ const prisma = new PrismaClient();
 export const listContacts = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   try {
-    const contacts = await prisma.contact.findMany({
-      where: req.user.role === 'admin' ? {} : { userId: req.user.id },
-      orderBy: { createdAt: 'desc' },
-    });
-    return res.json(contacts);
+    const where: any = req.user.role === 'admin' ? {} : { userId: req.user.id };
+    const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { phoneNumber: { contains: search } },
+      ];
+    }
+
+    // ?all=true skips pagination - used by pickers (e.g. group membership)
+    // that need every contact to select from, not just the current page.
+    if (req.query.all === 'true') {
+      const contacts = await prisma.contact.findMany({ where, orderBy: { createdAt: 'desc' } });
+      return res.json({ contacts, total: contacts.length, page: 1, limit: contacts.length, totalPages: 1 });
+    }
+
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 25));
+
+    const [contacts, total] = await Promise.all([
+      prisma.contact.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.contact.count({ where }),
+    ]);
+
+    return res.json({ contacts, total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) });
   } catch (err) {
     console.error('List contacts error:', err);
     return res.status(500).json({ error: 'Internal server error' });

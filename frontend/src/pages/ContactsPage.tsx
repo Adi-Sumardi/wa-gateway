@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Contact as ContactIcon, Users2, UserPlus, Trash2, FolderPlus } from 'lucide-react';
+import { Contact as ContactIcon, Users2, UserPlus, Trash2, FolderPlus, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 
 interface ContactRow {
   id: string;
@@ -28,8 +28,17 @@ interface Props {
   setConfirmDialog: (dialog: { title: string; message: string; onConfirm: () => void } | null) => void;
 }
 
+const PAGE_SIZE = 25;
+
 export default function ContactsPage({ backendUrl, getHeaders, addToast, hasPermission, setConfirmDialog }: Props) {
   const [contacts, setContacts] = useState<ContactRow[]>([]);
+  // Separate, unpaginated list used only by the group-membership picker
+  // below, which needs every contact to choose from, not just this page.
+  const [allContacts, setAllContacts] = useState<ContactRow[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -47,12 +56,29 @@ export default function ContactsPage({ backendUrl, getHeaders, addToast, hasPerm
 
   const canManage = hasPermission('contacts.manage');
 
-  const fetchContacts = async () => {
+  const fetchContacts = async (targetPage: number, searchTerm: string) => {
     try {
-      const res = await fetch(`${backendUrl}/api/contacts`, { headers: getHeaders() });
-      if (res.ok) setContacts(await res.json());
+      const params = new URLSearchParams({ page: String(targetPage), limit: String(PAGE_SIZE) });
+      if (searchTerm) params.set('search', searchTerm);
+      const res = await fetch(`${backendUrl}/api/contacts?${params}`, { headers: getHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setContacts(data.contacts);
+        setPage(data.page);
+        setTotalPages(data.totalPages);
+        setTotal(data.total);
+      }
     } catch (err) {
       console.error('Failed to load contacts:', err);
+    }
+  };
+
+  const fetchAllContactsForPicker = async () => {
+    try {
+      const res = await fetch(`${backendUrl}/api/contacts?all=true`, { headers: getHeaders() });
+      if (res.ok) setAllContacts((await res.json()).contacts);
+    } catch (err) {
+      console.error('Failed to load full contact list:', err);
     }
   };
 
@@ -66,9 +92,22 @@ export default function ContactsPage({ backendUrl, getHeaders, addToast, hasPerm
   };
 
   useEffect(() => {
-    fetchContacts();
+    fetchContacts(1, '');
+    fetchAllContactsForPicker();
     fetchGroups();
   }, []);
+
+  // Debounced re-search: reset to page 1 whenever the search term changes.
+  useEffect(() => {
+    const timer = setTimeout(() => fetchContacts(1, search), 350);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
+  const goToPage = (p: number) => {
+    if (p < 1 || p > totalPages) return;
+    fetchContacts(p, search);
+  };
 
   const handleCreateContact = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,7 +134,8 @@ export default function ContactsPage({ backendUrl, getHeaders, addToast, hasPerm
       setPhoneNumber('');
       setTags('');
       setNotes('');
-      fetchContacts();
+      fetchContacts(1, search);
+      fetchAllContactsForPicker();
     } catch (err: any) {
       addToast(err.message || 'Failed to create contact', 'error');
     } finally {
@@ -125,8 +165,9 @@ export default function ContactsPage({ backendUrl, getHeaders, addToast, hasPerm
         setConfirmDialog(null);
         try {
           await fetch(`${backendUrl}/api/contacts/${contact.id}`, { method: 'DELETE', headers: getHeaders() });
-          setContacts((prev) => prev.filter((c) => c.id !== contact.id));
+          setAllContacts((prev) => prev.filter((c) => c.id !== contact.id));
           addToast('Contact deleted', 'success');
+          fetchContacts(page, search);
         } catch (err) {
           addToast('Failed to delete contact', 'error');
         }
@@ -231,9 +272,20 @@ export default function ContactsPage({ backendUrl, getHeaders, addToast, hasPerm
       )}
 
       <div className="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-6 shadow-sm space-y-4">
-        <h3 className="font-bold text-sm flex items-center gap-2">
-          <ContactIcon className="w-5 h-5" /> Contacts
-        </h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h3 className="font-bold text-sm flex items-center gap-2">
+            <ContactIcon className="w-5 h-5" /> Contacts <span className="text-on-surface-variant font-normal">({total})</span>
+          </h3>
+          <div className="relative w-full sm:w-64">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari nama atau nomor..."
+              className="w-full pl-9 pr-3 py-2 bg-surface-container-lowest border border-outline-variant rounded-xl outline-none text-xs"
+            />
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs">
             <thead>
@@ -279,6 +331,27 @@ export default function ContactsPage({ backendUrl, getHeaders, addToast, hasPerm
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-2 text-xs">
+            <span className="text-on-surface-variant">Halaman {page} dari {totalPages}</span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => goToPage(page - 1)}
+                disabled={page <= 1}
+                className="p-2 rounded-xl bg-surface-container-lowest border border-outline-variant/50 disabled:opacity-40"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => goToPage(page + 1)}
+                disabled={page >= totalPages}
+                className="p-2 rounded-xl bg-surface-container-lowest border border-outline-variant/50 disabled:opacity-40"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {canManage && (
@@ -338,7 +411,7 @@ export default function ContactsPage({ backendUrl, getHeaders, addToast, hasPerm
                           Select contacts for this group
                         </p>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
-                          {contacts.map((c) => (
+                          {allContacts.map((c) => (
                             <label key={c.id} className="flex items-center gap-2 text-xs">
                               <input
                                 type="checkbox"
