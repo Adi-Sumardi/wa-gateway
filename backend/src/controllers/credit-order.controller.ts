@@ -35,6 +35,7 @@ export const createOrder = async (req: AuthenticatedRequest, res: Response) => {
         userId: user.id,
         packageId: pkg.id,
         quotaAmount: pkg.quotaAmount,
+        productType: pkg.productType,
         priceRp: pkg.priceRp,
         midtransOrderId,
         snapToken: token,
@@ -73,7 +74,6 @@ export const handleWebhook = async (req: Request, res: Response) => {
   try {
     const order = await prisma.creditOrder.findUnique({
       where: { midtransOrderId: order_id },
-      include: { package: true },
     });
     if (!order) {
       console.warn(`[Midtrans] Notification for unknown order ${order_id}`);
@@ -103,16 +103,16 @@ export const handleWebhook = async (req: Request, res: Response) => {
         const newValue = await creditService.applyPurchase(
           null,
           order.userId,
-          order.package.productType,
+          order.productType,
           order.quotaAmount,
           `Midtrans order ${order.midtransOrderId}`
         );
         logAudit(
           order.userId,
           'credit.midtrans_topup',
-          `Midtrans payment settled for order ${order.midtransOrderId}: +${order.quotaAmount} ${order.package.productType}`
+          `Midtrans payment settled for order ${order.midtransOrderId}: +${order.quotaAmount} ${order.productType}`
         );
-        emitToOwner(order.userId, 'quota-updated', { productType: order.package.productType, newValue });
+        emitToOwner(order.userId, 'quota-updated', { productType: order.productType, newValue });
       }
     } else if (isFailed) {
       await prisma.creditOrder.updateMany({

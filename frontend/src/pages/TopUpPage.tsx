@@ -39,7 +39,9 @@ interface OrderRow {
   status: 'pending' | 'paid' | 'failed' | 'expired' | 'cancelled';
   createdAt: string;
   snapToken: string | null;
-  package: { name: string; productType: ProductType };
+  // null once the package it points to has been permanently deleted - the
+  // order itself still keeps its own quotaAmount/priceRp snapshot.
+  package: { name: string; productType: ProductType } | null;
 }
 
 interface Props {
@@ -271,28 +273,36 @@ export default function TopUpPage({ backendUrl, getHeaders, addToast, setConfirm
     }
   };
 
+  const reallyDeletePackage = async (pkg: PackageRow) => {
+    setConfirmDialog(null);
+    try {
+      const res = await fetch(`${backendUrl}/api/credit-packages/${pkg.id}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+        body: JSON.stringify({ force: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete package');
+      setPackages((prev) => prev.filter((p) => p.id !== pkg.id));
+      addToast(data.message, 'success');
+    } catch (err: any) {
+      addToast(err.message || 'Failed to delete package', 'error');
+    }
+  };
+
   const deletePackage = (pkg: PackageRow) => {
     setConfirmDialog({
       title: 'Hapus Paket',
-      message: `Hapus paket "${pkg.name}"? Kalau paket ini belum pernah dibeli, akan dihapus permanen. Kalau sudah pernah dibeli, akan dinonaktifkan saja supaya riwayat pembelian lama tetap aman.`,
-      onConfirm: async () => {
-        setConfirmDialog(null);
-        try {
-          const res = await fetch(`${backendUrl}/api/credit-packages/${pkg.id}`, {
-            method: 'DELETE',
-            headers: getHeaders(),
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || 'Failed to delete package');
-          if (data.deleted) {
-            setPackages((prev) => prev.filter((p) => p.id !== pkg.id));
-          } else {
-            setPackages((prev) => prev.map((p) => (p.id === pkg.id ? { ...p, isActive: false } : p)));
-          }
-          addToast(data.message, data.deleted ? 'success' : 'info');
-        } catch (err: any) {
-          addToast(err.message || 'Failed to delete package', 'error');
-        }
+      message: `Hapus paket "${pkg.name}" secara permanen? Riwayat pembelian yang sudah ada tetap aman (jumlah & harga yang dibeli tetap tersimpan), tapi paket ini sendiri akan hilang dari daftar.`,
+      onConfirm: () => {
+        // Second, stricter confirmation - deleting a package that's already
+        // been purchased is deliberately gated behind two steps so it can't
+        // happen from one accidental click.
+        setConfirmDialog({
+          title: 'Konfirmasi Sekali Lagi',
+          message: `Ini akan menghapus "${pkg.name}" secara PERMANEN dan tidak bisa dibatalkan. Yakin lanjutkan?`,
+          onConfirm: () => reallyDeletePackage(pkg),
+        });
       },
     });
   };
@@ -441,7 +451,7 @@ export default function TopUpPage({ backendUrl, getHeaders, addToast, setConfirm
               {orders.map((o) => (
                 <tr key={o.id} className="hover:bg-surface-container-lowest transition-colors">
                   <td className="py-2.5 px-4 font-mono text-on-surface-variant whitespace-nowrap">{new Date(o.createdAt).toLocaleString()}</td>
-                  <td className="py-2.5 px-4">{o.package.name}</td>
+                  <td className="py-2.5 px-4">{o.package?.name ?? <span className="italic text-on-surface-variant">Paket dihapus</span>}</td>
                   <td className="py-2.5 px-4 font-mono">{o.quotaAmount}</td>
                   <td className="py-2.5 px-4 font-mono">{formatRp(o.priceRp)}</td>
                   <td className="py-2.5 px-4">

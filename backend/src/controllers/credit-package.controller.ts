@@ -70,24 +70,27 @@ export const updatePackage = async (req: AuthenticatedRequest, res: Response) =>
 export const deletePackage = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const { id } = req.params;
+  const force = req.body?.force === true;
 
   try {
     const pkg = await prisma.creditPackage.findUnique({ where: { id } });
     if (!pkg) return res.status(404).json({ error: 'Package not found' });
 
-    // Only hard-delete if nothing references it yet - past orders have no
-    // cascade, so deleting a referenced package would orphan order history.
-    // Otherwise fall back to deactivating so it just stops appearing to
-    // buyers without breaking anything that already points at it.
     const orderCount = await prisma.creditOrder.count({ where: { packageId: id } });
-    if (orderCount === 0) {
+
+    // Orders keep their own snapshot (quotaAmount/productType/priceRp), so
+    // hard-deleting a purchased package is safe - packageId just goes null
+    // on those rows (onDelete: SetNull) - but it still requires an explicit
+    // `force` flag so a single accidental click can't nuke a live package,
+    // only a deliberate confirm-twice action from the UI.
+    if (orderCount === 0 || force) {
       await prisma.creditPackage.delete({ where: { id } });
-      return res.json({ message: 'Package deleted', deleted: true });
+      return res.json({ message: 'Package dihapus permanen', deleted: true });
     }
 
     await prisma.creditPackage.update({ where: { id }, data: { isActive: false } });
     return res.json({
-      message: `Package sudah pernah dibeli (${orderCount}x), tidak bisa dihapus permanen - dinonaktifkan sebagai gantinya`,
+      message: `Package sudah pernah dibeli (${orderCount}x) - dinonaktifkan. Konfirmasi sekali lagi untuk menghapus permanen.`,
       deleted: false,
     });
   } catch (err) {

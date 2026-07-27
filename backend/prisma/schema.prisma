@@ -122,16 +122,23 @@ enum CreditOrderStatus {
 model CreditOrder {
   id              String            @id @default(uuid()) @db.Uuid
   userId          String            @db.Uuid @map("user_id")
-  packageId       String            @db.Uuid @map("package_id")
+  // Nullable + SetNull so a CreditPackage can be permanently deleted even
+  // after it's been purchased, without breaking old order rows - the order
+  // keeps its own snapshot of everything needed (quotaAmount, priceRp,
+  // productType) so it stays meaningful even once package is null.
+  packageId       String?           @db.Uuid @map("package_id")
   // See CreditPackage.quotaAmount comment - same migration-safety default.
   quotaAmount     Int               @default(0) @map("quota_amount")
+  // Snapshot so the webhook can still credit the right thing even if the
+  // package gets deleted between order creation and payment settling.
+  productType     CreditProductType @default(ai_credit) @map("product_type")
   priceRp         Int               @map("price_rp")
   midtransOrderId String            @unique @map("midtrans_order_id")
   snapToken       String?           @map("snap_token")
   status          CreditOrderStatus @default(pending)
   createdAt       DateTime          @default(now()) @map("created_at")
   paidAt          DateTime?         @map("paid_at")
-  package         CreditPackage     @relation(fields: [packageId], references: [id])
+  package         CreditPackage?    @relation(fields: [packageId], references: [id], onDelete: SetNull)
 
   @@map("credit_orders")
 }
