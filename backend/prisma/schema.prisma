@@ -98,7 +98,11 @@ model CreditPackage {
   id          String            @id @default(uuid()) @db.Uuid
   productType CreditProductType @default(ai_credit) @map("product_type")
   name        String
-  quotaAmount Int               @map("quota_amount")
+  // @default(0) exists only so `prisma db push --accept-data-loss` can add
+  // this column to production rows that predate the coins -> quotaAmount
+  // rename without requiring --force-reset (which would wipe the DB) -
+  // backfill real values via SQL after deploying, see deploy notes.
+  quotaAmount Int               @default(0) @map("quota_amount")
   priceRp     Int               @map("price_rp")
   isActive    Boolean           @default(true) @map("is_active")
   createdAt   DateTime          @default(now()) @map("created_at")
@@ -119,7 +123,8 @@ model CreditOrder {
   id              String            @id @default(uuid()) @db.Uuid
   userId          String            @db.Uuid @map("user_id")
   packageId       String            @db.Uuid @map("package_id")
-  quotaAmount     Int               @map("quota_amount")
+  // See CreditPackage.quotaAmount comment - same migration-safety default.
+  quotaAmount     Int               @default(0) @map("quota_amount")
   priceRp         Int               @map("price_rp")
   midtransOrderId String            @unique @map("midtrans_order_id")
   snapToken       String?           @map("snap_token")
