@@ -51,6 +51,7 @@ services:
       TZ: Asia/Jakarta
     volumes:
       - gateway_auth:/app/.wwebjs_auth
+      - gateway_cache:/app/.wwebjs_cache
 
   frontend:
     build:
@@ -68,3 +69,4 @@ services:
 volumes:
   postgres_data:
   gateway_auth:
+  gateway_cache:

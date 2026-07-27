@@ -11,6 +11,37 @@ const GATEWAY_TOKEN = process.env.GATEWAY_TOKEN || 'sendago-gateway-secret-token
 
 console.log(`[Gateway] Starting... Connecting to Backend at ${BACKEND_URL}`);
 
+// whatsapp-web.js's `type: 'remote'` webVersionCache does a fresh network
+// fetch to GitHub on EVERY client.initialize() call - i.e. every single
+// device link attempt pays that round-trip on top of the normal Puppeteer
+// startup time, which is what made "tautkan device" feel slow. Fetch it
+// once here, cache the HTML to disk, and point the client at that local
+// cache instead - only the very first link (per persisted volume) touches
+// the network for this.
+const WEB_VERSION_REMOTE_PATH = 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1043179329-alpha.html';
+const WEB_CACHE_DIR = path.join(process.cwd(), '.wwebjs_cache');
+// Matches whatsapp-web.js's default `webVersion` (used as the cache
+// filename since we don't override it) - see Constants.js in the library.
+const WEB_CACHE_VERSION = '2.3000.1017054665';
+const webVersionCacheReady = (async () => {
+  const cachePath = path.join(WEB_CACHE_DIR, `${WEB_CACHE_VERSION}.html`);
+  if (fs.existsSync(cachePath)) return;
+  try {
+    console.log('[Gateway] Warming local WhatsApp Web version cache...');
+    const res = await fetch(WEB_VERSION_REMOTE_PATH);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const html = await res.text();
+    fs.mkdirSync(WEB_CACHE_DIR, { recursive: true });
+    fs.writeFileSync(cachePath, html);
+    console.log('[Gateway] WhatsApp Web version cache ready.');
+  } catch (err: any) {
+    // Non-fatal: LocalWebCache falls back to fetching the version WhatsApp
+    // Web itself serves when there's no cache file, so device linking still
+    // works, just without the speed-up on this run.
+    console.warn('[Gateway] Failed to warm WhatsApp Web version cache, will retry per-connection:', err.message);
+  }
+})();
+
 const socket: Socket = io(BACKEND_URL, {
   auth: {
     type: 'gateway',
@@ -190,6 +221,10 @@ socket.on('init-device', async (data: { deviceId: string }) => {
   try {
     socket.emit('device-status', { deviceId, status: 'connecting' });
 
+    // Make sure the version cache warmed at startup (or a previous run, via
+    // the persisted volume) has finished before the client tries to read it.
+    await webVersionCacheReady;
+
     // Clean up stale Chromium lock files in the persistent docker volume.
     // SingletonLock is a symlink pointing at "hostname-pid"; since that target
     // never resolves on a fresh host, fs.existsSync() (which follows symlinks)
@@ -220,8 +255,9 @@ socket.on('init-device', async (data: { deviceId: string }) => {
       // undefined). Pull a current version from the community-maintained
       // cache instead of relying on the bundled one.
       webVersionCache: {
-        type: 'remote',
-        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1043179329-alpha.html',
+        type: 'local',
+        path: WEB_CACHE_DIR,
+        strict: false,
       },
       puppeteer: {
         headless: true,
