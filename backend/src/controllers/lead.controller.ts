@@ -28,11 +28,21 @@ export const createLead = async (req: Request, res: Response) => {
 export const listLeads = async (req: AuthenticatedRequest, res: Response) => {
   const { status } = req.query;
   try {
-    const leads = await prisma.lead.findMany({
-      where: status && VALID_STATUSES.includes(status as LeadStatus) ? { status: status as LeadStatus } : {},
-      orderBy: { createdAt: 'desc' },
-    });
-    return res.json(leads);
+    const where = status && VALID_STATUSES.includes(status as LeadStatus) ? { status: status as LeadStatus } : {};
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 25));
+
+    const [leads, total] = await Promise.all([
+      prisma.lead.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.lead.count({ where }),
+    ]);
+
+    return res.json({ leads, total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) });
   } catch (err) {
     console.error('List leads error:', err);
     return res.status(500).json({ error: 'Internal server error' });

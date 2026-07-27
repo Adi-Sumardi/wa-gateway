@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, ChevronLeft, ChevronRight } from 'lucide-react';
 
 type LeadStatus = 'new' | 'contacted' | 'converted' | 'closed';
 
@@ -33,11 +33,20 @@ const STATUS_OPTIONS: LeadStatus[] = ['new', 'contacted', 'converted', 'closed']
 export default function LeadsPage({ backendUrl, getHeaders, addToast }: Props) {
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
 
-  const fetchLeads = async () => {
+  const fetchLeads = async (targetPage = 1) => {
     try {
-      const res = await fetch(`${backendUrl}/api/leads`, { headers: getHeaders() });
-      if (res.ok) setLeads(await res.json());
+      const res = await fetch(`${backendUrl}/api/leads?page=${targetPage}&limit=25`, { headers: getHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setLeads(data.leads);
+        setPage(data.page);
+        setTotalPages(data.totalPages);
+        setTotal(data.total);
+      }
     } catch (err) {
       console.error('Failed to load leads:', err);
     } finally {
@@ -46,8 +55,13 @@ export default function LeadsPage({ backendUrl, getHeaders, addToast }: Props) {
   };
 
   useEffect(() => {
-    fetchLeads();
+    fetchLeads(1);
   }, []);
+
+  const goToPage = (p: number) => {
+    if (p < 1 || p > totalPages) return;
+    fetchLeads(p);
+  };
 
   const updateStatus = async (lead: LeadRow, status: LeadStatus) => {
     try {
@@ -72,7 +86,7 @@ export default function LeadsPage({ backendUrl, getHeaders, addToast }: Props) {
 
       <div className="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-6 shadow-sm space-y-4">
         <h3 className="font-bold text-sm flex items-center gap-2">
-          <UserPlus className="w-5 h-5" /> Daftar Leads
+          <UserPlus className="w-5 h-5" /> Daftar Leads <span className="text-on-surface-variant font-normal">({total})</span>
         </h3>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs">
@@ -120,6 +134,19 @@ export default function LeadsPage({ backendUrl, getHeaders, addToast }: Props) {
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-2 text-xs">
+            <span className="text-on-surface-variant">Halaman {page} dari {totalPages}</span>
+            <div className="flex gap-2">
+              <button onClick={() => goToPage(page - 1)} disabled={page <= 1} className="p-2 rounded-xl bg-surface-container-lowest border border-outline-variant/50 disabled:opacity-40">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button onClick={() => goToPage(page + 1)} disabled={page >= totalPages} className="p-2 rounded-xl bg-surface-container-lowest border border-outline-variant/50 disabled:opacity-40">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

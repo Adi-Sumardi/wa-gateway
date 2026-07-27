@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Users, UserPlus, Shield, History } from 'lucide-react';
+import { Users, UserPlus, Shield, History, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface UserRow {
   id: string;
@@ -46,6 +46,9 @@ const ROLE_BADGE: Record<string, string> = {
 export default function UsersRolesPage({ backendUrl, getHeaders, addToast, currentUserId, setConfirmDialog }: Props) {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogRow[]>([]);
+  const [auditPage, setAuditPage] = useState(1);
+  const [auditTotalPages, setAuditTotalPages] = useState(1);
+  const [auditTotal, setAuditTotal] = useState(0);
   const [matrix, setMatrix] = useState<PermissionRow[]>([]);
   const [pendingMatrix, setPendingMatrix] = useState<PermissionRow[]>([]);
   const [name, setName] = useState('');
@@ -90,19 +93,30 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
     }
   };
 
-  const fetchAuditLogs = async () => {
+  const fetchAuditLogs = async (targetPage = 1) => {
     try {
-      const res = await fetch(`${backendUrl}/api/audit-logs`, { headers: getHeaders() });
-      if (res.ok) setAuditLogs(await res.json());
+      const res = await fetch(`${backendUrl}/api/audit-logs?page=${targetPage}&limit=25`, { headers: getHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setAuditLogs(data.logs);
+        setAuditPage(data.page);
+        setAuditTotalPages(data.totalPages);
+        setAuditTotal(data.total);
+      }
     } catch (err) {
       console.error('Failed to load audit logs:', err);
     }
   };
 
+  const goToAuditPage = (p: number) => {
+    if (p < 1 || p > auditTotalPages) return;
+    fetchAuditLogs(p);
+  };
+
   useEffect(() => {
     fetchUsers();
     fetchMatrix();
-    fetchAuditLogs();
+    fetchAuditLogs(1);
   }, []);
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -583,7 +597,7 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
 
       <div className="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-6 shadow-sm space-y-4">
         <h3 className="font-bold text-sm flex items-center gap-2">
-          <History className="w-5 h-5" /> Audit Log
+          <History className="w-5 h-5" /> Audit Log <span className="text-on-surface-variant font-normal">({auditTotal})</span>
         </h3>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs">
@@ -614,6 +628,19 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
             </tbody>
           </table>
         </div>
+        {auditTotalPages > 1 && (
+          <div className="flex items-center justify-between pt-2 text-xs">
+            <span className="text-on-surface-variant">Halaman {auditPage} dari {auditTotalPages}</span>
+            <div className="flex gap-2">
+              <button onClick={() => goToAuditPage(auditPage - 1)} disabled={auditPage <= 1} className="p-2 rounded-xl bg-surface-container-lowest border border-outline-variant/50 disabled:opacity-40">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button onClick={() => goToAuditPage(auditPage + 1)} disabled={auditPage >= auditTotalPages} className="p-2 rounded-xl bg-surface-container-lowest border border-outline-variant/50 disabled:opacity-40">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

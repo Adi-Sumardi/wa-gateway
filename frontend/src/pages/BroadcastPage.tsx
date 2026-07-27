@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Socket } from 'socket.io-client';
-import { Radio, Play, Pause, Trash2 } from 'lucide-react';
+import { Radio, Play, Pause, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Device {
   id: string;
@@ -58,6 +58,9 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function BroadcastPage({ backendUrl, getHeaders, devices, socket, addToast, hasPermission, role, broadcastQuotaMonthly, broadcastSentThisMonth }: Props) {
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [templates, setTemplates] = useState<TemplateOption[]>([]);
   const [templateId, setTemplateId] = useState('');
   const [name, setName] = useState('');
@@ -76,13 +79,24 @@ export default function BroadcastPage({ backendUrl, getHeaders, devices, socket,
 
   const connectedDevices = devices.filter((d) => d.status === 'connected');
 
-  const fetchBroadcasts = async () => {
+  const fetchBroadcasts = async (targetPage = page) => {
     try {
-      const res = await fetch(`${backendUrl}/api/broadcasts`, { headers: getHeaders() });
-      if (res.ok) setBroadcasts(await res.json());
+      const res = await fetch(`${backendUrl}/api/broadcasts?page=${targetPage}&limit=25`, { headers: getHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setBroadcasts(data.broadcasts);
+        setPage(data.page);
+        setTotalPages(data.totalPages);
+        setTotal(data.total);
+      }
     } catch (err) {
       console.error('Failed to load broadcasts:', err);
     }
+  };
+
+  const goToPage = (p: number) => {
+    if (p < 1 || p > totalPages) return;
+    fetchBroadcasts(p);
   };
 
   const fetchTemplates = async () => {
@@ -364,7 +378,7 @@ export default function BroadcastPage({ backendUrl, getHeaders, devices, socket,
       )}
 
       <div className="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-6 shadow-sm space-y-4">
-        <h3 className="font-bold text-base">Broadcasts</h3>
+        <h3 className="font-bold text-base">Broadcasts <span className="text-on-surface-variant font-normal text-xs">({total})</span></h3>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs">
             <thead>
@@ -419,6 +433,19 @@ export default function BroadcastPage({ backendUrl, getHeaders, devices, socket,
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-2 text-xs">
+            <span className="text-on-surface-variant">Halaman {page} dari {totalPages}</span>
+            <div className="flex gap-2">
+              <button onClick={() => goToPage(page - 1)} disabled={page <= 1} className="p-2 rounded-xl bg-surface-container-lowest border border-outline-variant/50 disabled:opacity-40">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button onClick={() => goToPage(page + 1)} disabled={page >= totalPages} className="p-2 rounded-xl bg-surface-container-lowest border border-outline-variant/50 disabled:opacity-40">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

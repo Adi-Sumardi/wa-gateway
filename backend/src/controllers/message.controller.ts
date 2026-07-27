@@ -136,15 +136,23 @@ export const getMessages = async (req: Request, res: Response) => {
   }
 
   try {
-    const messages = await prisma.message.findMany({
-      where: authUser.role === 'admin' ? {} : { device: { userId: authUser.id } },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-      include: {
-        device: { select: { label: true } },
-        contact: { select: { name: true, phoneNumber: true } },
-      },
-    });
+    const where = authUser.role === 'admin' ? {} : { device: { userId: authUser.id } };
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 100));
+
+    const [messages, total] = await Promise.all([
+      prisma.message.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          device: { select: { label: true } },
+          contact: { select: { name: true, phoneNumber: true } },
+        },
+      }),
+      prisma.message.count({ where }),
+    ]);
 
     // Format output to include contact name and phone number directly
     const formatted = messages.map(m => ({
@@ -160,7 +168,7 @@ export const getMessages = async (req: Request, res: Response) => {
       createdAt: m.createdAt,
     }));
 
-    return res.json(formatted);
+    return res.json({ messages: formatted, total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) });
   } catch (err) {
     console.error('Get messages logs error:', err);
     return res.status(500).json({ error: 'Internal server error' });

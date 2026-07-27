@@ -77,16 +77,25 @@ export const listBroadcasts = async (req: Request, res: Response) => {
   if (!authUser) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
-    const broadcasts = await prisma.broadcast.findMany({
-      where: authUser.role === 'admin' ? {} : { createdBy: authUser.id },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        device: { select: { label: true } },
-        template: { select: { content: true, mediaUrl: true } },
-        _count: { select: { targets: true } },
-        targets: { select: { status: true } },
-      },
-    });
+    const where = authUser.role === 'admin' ? {} : { createdBy: authUser.id };
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 25));
+
+    const [broadcasts, total] = await Promise.all([
+      prisma.broadcast.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          device: { select: { label: true } },
+          template: { select: { content: true, mediaUrl: true } },
+          _count: { select: { targets: true } },
+          targets: { select: { status: true } },
+        },
+      }),
+      prisma.broadcast.count({ where }),
+    ]);
 
     const formatted = broadcasts.map((b) => {
       const sent = b.targets.filter((t) => t.status !== 'queued').length;
@@ -112,7 +121,7 @@ export const listBroadcasts = async (req: Request, res: Response) => {
       };
     });
 
-    return res.json(formatted);
+    return res.json({ broadcasts: formatted, total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) });
   } catch (err) {
     console.error('List broadcasts error:', err);
     return res.status(500).json({ error: 'Internal server error' });

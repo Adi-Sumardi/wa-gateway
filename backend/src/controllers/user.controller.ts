@@ -199,12 +199,20 @@ export const updatePermissionMatrix = async (req: AuthenticatedRequest, res: Res
 
 export const getAuditLogs = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const logs = await prisma.auditLog.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-      include: { user: { select: { name: true, email: true } } },
-    });
-    return res.json(logs);
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 25));
+
+    const [logs, total] = await Promise.all([
+      prisma.auditLog.findMany({
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: { user: { select: { name: true, email: true } } },
+      }),
+      prisma.auditLog.count(),
+    ]);
+
+    return res.json({ logs, total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) });
   } catch (err) {
     console.error('Get audit logs error:', err);
     return res.status(500).json({ error: 'Internal server error' });

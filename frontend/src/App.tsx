@@ -141,6 +141,10 @@ export default function App() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [allUsers, setAllUsers] = useState<{ id: string; name: string; email: string }[]>([]);
   const [logs, setLogs] = useState<MessageLog[]>([]);
+  const [messagesPage, setMessagesPage] = useState(1);
+  const [messagesTotalPages, setMessagesTotalPages] = useState(1);
+  const [messagesTotal, setMessagesTotal] = useState(0);
+  const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [webhooks, setWebhooks] = useState<Webhook[]>([]);
   const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
@@ -204,13 +208,42 @@ export default function App() {
       // a 403 body is an error object, not an array, so only apply it when
       // the request actually succeeded or the corresponding state stays [].
       if (devsRes.ok) setDevices(await devsRes.json());
-      if (msgsRes.ok) setLogs(await msgsRes.json());
+      if (msgsRes.ok) {
+        const msgData = await msgsRes.json();
+        setLogs(msgData.messages);
+        setMessagesPage(msgData.page);
+        setMessagesTotalPages(msgData.totalPages);
+        setMessagesTotal(msgData.total);
+      }
       if (keysRes.ok) setApiKeys(await keysRes.json());
       if (hooksRes.ok) setWebhooks(await hooksRes.json());
       if (wLogsRes.ok) setWebhookLogs(await wLogsRes.json());
       if (linksRes.ok) setLinks(await linksRes.json());
     } catch (e) {
       console.error('Failed to load dashboard data:', e);
+    }
+  };
+
+  // Appends the next page of older messages rather than replacing `logs` -
+  // that state also drives Overview's stat cards, "recent activity" preview,
+  // and the live socket feed, so a page-replace pagination model would break
+  // all three every time someone browsed older history on the Messages tab.
+  const loadMoreMessages = async () => {
+    if (messagesPage >= messagesTotalPages) return;
+    setLoadingMoreMessages(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/messages?page=${messagesPage + 1}&limit=100`, { headers: getHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setLogs(prev => [...prev, ...data.messages]);
+        setMessagesPage(data.page);
+        setMessagesTotalPages(data.totalPages);
+        setMessagesTotal(data.total);
+      }
+    } catch (err) {
+      console.error('Failed to load more messages:', err);
+    } finally {
+      setLoadingMoreMessages(false);
     }
   };
 
@@ -302,7 +335,10 @@ export default function App() {
     });
 
     socket.on('new-message', (msg: MessageLog) => {
-      setLogs(prev => [msg, ...prev.slice(0, 99)]);
+      // No truncation here - trimming back to 100 would silently discard
+      // any older pages already fetched via "Muat Pesan Lebih Lama".
+      setLogs(prev => [msg, ...prev]);
+      setMessagesTotal(prev => prev + 1);
     });
 
     socket.on('message-status-update', (data: MessageLog) => {
@@ -505,8 +541,11 @@ export default function App() {
       setSendTarget('');
       setSendMessageBody('');
       setSendMediaUrl('');
-      const messageLogs = await (await fetch(`${BACKEND_URL}/api/messages`, { headers: getHeaders() })).json();
-      setLogs(messageLogs);
+      const messageData = await (await fetch(`${BACKEND_URL}/api/messages`, { headers: getHeaders() })).json();
+      setLogs(messageData.messages);
+      setMessagesPage(messageData.page);
+      setMessagesTotalPages(messageData.totalPages);
+      setMessagesTotal(messageData.total);
     } catch (err: any) {
       setSendErrorMsg(err.message);
       addToast(`Send failed: ${err.message}`, 'error');
@@ -1313,7 +1352,7 @@ export default function App() {
 
               {/* Logs Table */}
               <div className="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-6 shadow-sm space-y-4">
-                <h3 className="font-bold text-base">Message History Logs (Latest 100)</h3>
+                <h3 className="font-bold text-base">Message History Logs <span className="text-on-surface-variant font-normal text-xs">({logs.length} dari {messagesTotal})</span></h3>
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse text-left text-xs">
                     <thead>
@@ -1362,6 +1401,17 @@ export default function App() {
                     </tbody>
                   </table>
                 </div>
+                {messagesPage < messagesTotalPages && (
+                  <div className="flex justify-center pt-2">
+                    <button
+                      onClick={loadMoreMessages}
+                      disabled={loadingMoreMessages}
+                      className="px-4 py-2 rounded-xl bg-surface-container-lowest border border-outline-variant/50 text-xs font-bold disabled:opacity-50"
+                    >
+                      {loadingMoreMessages ? 'Memuat...' : 'Muat Pesan Lebih Lama'}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
