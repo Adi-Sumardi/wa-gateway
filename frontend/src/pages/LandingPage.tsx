@@ -29,6 +29,34 @@ const PRODUCT_TYPE_LABEL: Record<ProductType, string> = {
 
 const formatRp = (n: number) => `Rp ${n.toLocaleString('id-ID')}`;
 
+const MARQUEE_ITEMS = [
+  '🚀 Broadcast massal tanpa batas',
+  '🔥 WA Warmer anti-banned',
+  '🤖 AI Auto-Reply Bot 24/7',
+  '💳 Top up otomatis via Midtrans',
+  '📊 Dashboard real-time',
+  '👥 Multi-device & multi-user',
+];
+
+const HERO_SLIDES = [
+  {
+    title: 'SendaGo WhatsApp Gateway',
+    subtitle: 'Kirim broadcast, jaga reputasi nomor WhatsApp Anda dengan Warmer, dan balas chat otomatis pakai AI - semua dalam satu platform.',
+  },
+  {
+    title: 'Broadcast Massal Tanpa Ribet',
+    subtitle: 'Kirim ribuan pesan sekaligus ke pelanggan Anda, lengkap dengan jadwal, jeda acak, dan rotasi device otomatis.',
+  },
+  {
+    title: 'WA Warmer - Anti Banned',
+    subtitle: 'Panaskan nomor WhatsApp baru Anda secara otomatis sebelum dipakai untuk broadcast, biar akun tetap aman.',
+  },
+  {
+    title: 'AI Auto-Reply 24/7',
+    subtitle: 'Biarkan AI membalas chat pelanggan Anda kapan saja, bahkan saat Anda sedang offline.',
+  },
+];
+
 const loadSnapScript = (): Promise<void> => {
   return new Promise((resolve, reject) => {
     if ((window as any).snap) return resolve();
@@ -45,6 +73,12 @@ const loadSnapScript = (): Promise<void> => {
 export default function LandingPage({ backendUrl }: Props) {
   const [bundles, setBundles] = useState<BundleRow[]>([]);
   const [notice, setNotice] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+  const [slide, setSlide] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => setSlide((s) => (s + 1) % HERO_SLIDES.length), 5000);
+    return () => clearInterval(timer);
+  }, []);
 
   const [showRegister, setShowRegister] = useState(false);
   const [pendingBundle, setPendingBundle] = useState<BundleRow | null>(null);
@@ -178,6 +212,17 @@ export default function LandingPage({ backendUrl }: Props) {
 
   return (
     <div className="min-h-screen bg-surface-container text-on-surface font-body-md">
+      <style>{`
+        @keyframes sendago-marquee {
+          from { transform: translateX(0); }
+          to { transform: translateX(-50%); }
+        }
+        .sendago-marquee-track {
+          animation: sendago-marquee 28s linear infinite;
+          width: max-content;
+        }
+      `}</style>
+
       {notice && (
         <div className={`fixed top-4 right-4 left-4 md:left-auto md:w-96 z-50 rounded-2xl px-5 py-4 shadow-xl flex items-start justify-between gap-3 ${
           notice.type === 'success' ? 'bg-primary-container text-on-primary-container' : notice.type === 'error' ? 'bg-error-container text-error' : 'bg-surface-container-high text-on-surface'
@@ -186,6 +231,15 @@ export default function LandingPage({ backendUrl }: Props) {
           <button onClick={() => setNotice(null)}><X className="w-4 h-4" /></button>
         </div>
       )}
+
+      {/* Running text ticker */}
+      <div className="w-full bg-primary text-on-primary overflow-hidden py-2">
+        <div className="flex sendago-marquee-track">
+          {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((item, i) => (
+            <span key={i} className="mx-6 text-xs font-bold uppercase tracking-wider whitespace-nowrap">{item}</span>
+          ))}
+        </div>
+      </div>
 
       {/* Header */}
       <div className="max-w-5xl mx-auto px-6 pt-6 flex justify-end">
@@ -197,12 +251,29 @@ export default function LandingPage({ backendUrl }: Props) {
         </button>
       </div>
 
-      {/* Hero */}
-      <div className="max-w-5xl mx-auto px-6 pt-10 pb-10 text-center space-y-4">
-        <h1 className="text-4xl md:text-5xl font-bold font-headline-lg text-on-surface">SendaGo WhatsApp Gateway</h1>
-        <p className="text-lg text-on-surface-variant max-w-2xl mx-auto">
-          Kirim broadcast, jaga reputasi nomor WhatsApp Anda dengan Warmer, dan balas chat otomatis pakai AI - semua dalam satu platform.
-        </p>
+      {/* Hero carousel */}
+      <div className="max-w-5xl mx-auto px-6 pt-10 pb-6">
+        <div className="relative min-h-[220px] md:min-h-[170px] flex items-center justify-center">
+          {HERO_SLIDES.map((s, i) => (
+            <div
+              key={i}
+              className={`absolute inset-0 flex flex-col items-center justify-center gap-4 text-center transition-opacity duration-700 ${i === slide ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+            >
+              <h1 className="text-4xl md:text-5xl font-bold font-headline-lg text-on-surface">{s.title}</h1>
+              <p className="text-lg text-on-surface-variant max-w-2xl mx-auto">{s.subtitle}</p>
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-center gap-2 mt-2">
+          {HERO_SLIDES.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setSlide(i)}
+              aria-label={`Slide ${i + 1}`}
+              className={`h-2 rounded-full transition-all ${i === slide ? 'w-6 bg-primary' : 'w-2 bg-outline-variant'}`}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Offers */}
