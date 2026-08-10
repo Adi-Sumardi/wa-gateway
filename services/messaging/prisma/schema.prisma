@@ -1,0 +1,42 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum MessageDirection {
+  inbound
+  outbound
+}
+
+enum MessageStatus {
+  queued
+  sent
+  delivered
+  read
+  failed
+}
+
+// deviceId / contactId / broadcastId reference other services - no FK,
+// separate databases.
+model Message {
+  id           String           @id @default(uuid()) @db.Uuid
+  deviceId     String           @db.Uuid @map("device_id")
+  contactId    String           @db.Uuid @map("contact_id")
+  broadcastId  String?          @db.Uuid @map("broadcast_id")
+  direction    MessageDirection
+  content      String
+  mediaUrl     String?          @map("media_url")
+  status       MessageStatus    @default(queued)
+  failedReason String?          @map("failed_reason")
+  waMessageId  String?          @unique @map("wa_message_id")
+  createdAt    DateTime         @default(now()) @map("created_at")
+
+  @@index([deviceId])
+  @@index([contactId])
+  @@index([createdAt])
+  @@map("messages")
+}

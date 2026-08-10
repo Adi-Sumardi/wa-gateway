@@ -29,6 +29,7 @@ import * as creditOrderController from './controllers/credit-order.controller';
 import * as bundlePackageController from './controllers/bundle-package.controller';
 import * as bundleOrderController from './controllers/bundle-order.controller';
 import * as leadController from './controllers/lead.controller';
+import * as aiEscalationController from './controllers/ai-escalation.controller';
 
 const app = express();
 const httpServer = createServer(app);
@@ -101,6 +102,11 @@ app.post('/api/midtrans/bundle-webhook', bundleOrderController.handleWebhook);
 app.post('/api/leads', leadController.createLead);
 app.get('/api/leads', authenticateJWT, requirePermission('leads.view'), leadController.listLeads);
 app.patch('/api/leads/:id', authenticateJWT, requirePermission('leads.view'), leadController.updateLeadStatus);
+
+// AI Bot escalations - raised when the AI auto-reply can't confidently
+// answer a customer, so a human operator can take over the conversation.
+app.get('/api/ai-escalations', authenticateJWT, requirePermission('ai_escalations.view'), aiEscalationController.listEscalations);
+app.post('/api/ai-escalations/:id/resolve', authenticateJWT, requirePermission('ai_escalations.manage'), aiEscalationController.resolveEscalation);
 
 // Device Management Routes
 app.get('/api/devices', authenticateJWT, requirePermission('devices.view'), deviceController.listDevices);

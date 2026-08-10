@@ -1,0 +1,66 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum WarmerStatus {
+  active
+  paused
+}
+
+enum MessageStatus {
+  queued
+  sent
+  delivered
+  read
+  failed
+}
+
+model WarmerSession {
+  id                  String         @id @default(uuid()) @db.Uuid
+  userId              String         @db.Uuid @map("user_id")
+  name                String
+  status              WarmerStatus   @default(paused)
+  minIntervalMinutes  Int            @default(15) @map("min_interval_minutes")
+  maxIntervalMinutes  Int            @default(45) @map("max_interval_minutes")
+  activeHourStart     Int            @default(8) @map("active_hour_start")
+  activeHourEnd       Int            @default(22) @map("active_hour_end")
+  messagePool         Json?          @map("message_pool")
+  createdAt           DateTime       @default(now()) @map("created_at")
+  devices             WarmerDevice[]
+  logs                WarmerLog[]
+
+  @@index([userId])
+  @@map("warmer_sessions")
+}
+
+// deviceId references device-gateway-service's Device.id - no FK, separate DB.
+model WarmerDevice {
+  id              String        @id @default(uuid()) @db.Uuid
+  warmerSessionId String        @db.Uuid @map("warmer_session_id")
+  deviceId        String        @db.Uuid @map("device_id")
+  warmerSession   WarmerSession @relation(fields: [warmerSessionId], references: [id], onDelete: Cascade)
+
+  @@unique([warmerSessionId, deviceId])
+  @@index([deviceId])
+  @@map("warmer_devices")
+}
+
+model WarmerLog {
+  id              String        @id @default(uuid()) @db.Uuid
+  warmerSessionId String        @db.Uuid @map("warmer_session_id")
+  fromDeviceId    String        @db.Uuid @map("from_device_id")
+  toDeviceId      String        @db.Uuid @map("to_device_id")
+  content         String
+  status          MessageStatus @default(queued)
+  failedReason    String?       @map("failed_reason")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  warmerSession   WarmerSession @relation(fields: [warmerSessionId], references: [id], onDelete: Cascade)
+
+  @@index([warmerSessionId])
+  @@map("warmer_logs")
+}

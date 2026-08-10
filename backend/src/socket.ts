@@ -324,16 +324,75 @@ export const initSocket = (server: HTTPServer) => {
                 await new Promise(resolve => setTimeout(resolve, 1500));
 
                 const enrichedContext = buildAiContext(device);
-                const aiReply = await callAiChatbot(data.body, enrichedContext);
+                const aiResult = await callAiChatbot(data.body, enrichedContext);
                 const recipient = data.fromWid || (data.from + '@c.us');
 
-                // The model decided this wasn't a genuine question (e.g. an
-                // automated greeting from another WhatsApp Business account) -
-                // stay silent instead of replying to a robot. Abstaining costs
-                // nothing since no OpenAI-generated reply was actually sent.
-                if (aiReply.trim().toUpperCase() === NO_REPLY_SENTINEL) {
+                if (aiResult.status === 'no_reply') {
+                  // The model decided this wasn't a genuine question (e.g. an
+                  // automated greeting from another WhatsApp Business account) -
+                  // stay silent instead of replying to a robot. Abstaining costs
+                  // nothing since no OpenAI-generated reply was actually sent.
                   console.log(`[AI] Abstained from replying to ${data.from} (not a genuine question)`);
+                } else if (aiResult.status === 'error' || aiResult.status === 'uncertain') {
+                  // The AI either failed technically (no API key, request/parse
+                  // error) or explicitly signaled it can't answer confidently
+                  // from the context it was given. Either way, don't let a
+                  // canned "maaf saya tidak mengerti" string masquerade as a
+                  // real answer (and don't bill AI credit for it) - send a
+                  // human holding reply instead and raise an escalation so a
+                  // human operator picks up the conversation.
+                  console.warn(`[AI] Escalating to human for ${data.from} (reason=${aiResult.status}): ${aiResult.detail}`);
+
+                  const holdingReply = 'Mohon maaf, pertanyaan Anda akan segera dibantu oleh tim kami secara langsung ya 🙏';
+                  const outMsg = await prisma.message.create({
+                    data: {
+                      deviceId: device.id,
+                      contactId: contact.id,
+                      direction: 'outbound',
+                      content: holdingReply,
+                      status: 'queued',
+                    },
+                  });
+                  sendWhatsappMessage({
+                    messageId: outMsg.id,
+                    deviceId: device.id,
+                    to: recipient,
+                    body: holdingReply,
+                  });
+
+                  const escalation = await prisma.aiEscalation.create({
+                    data: {
+                      userId: device.userId,
+                      deviceId: device.id,
+                      contactId: contact.id,
+                      messageId: msg.id,
+                      question: data.body,
+                      reason: aiResult.status === 'error' ? 'ai_error' : 'ai_uncertain',
+                      detail: aiResult.detail,
+                    },
+                  });
+
+                  emitToOwner(device.userId, 'ai-escalation', {
+                    id: escalation.id,
+                    deviceId: device.id,
+                    deviceLabel: device.label,
+                    contactId: contact.id,
+                    contactName: contact.name,
+                    contactPhone: contact.phoneNumber,
+                    question: data.body,
+                    reason: escalation.reason,
+                    createdAt: escalation.createdAt,
+                  });
+
+                  triggerWebhooks(device.userId, 'ai.escalation', {
+                    deviceId: device.id,
+                    contactPhone: contact.phoneNumber,
+                    question: data.body,
+                    reason: escalation.reason,
+                    createdAt: escalation.createdAt.toISOString(),
+                  });
                 } else {
+                  const aiReply = aiResult.text;
                   if (isMetered) {
                     const newBalance = await consumeCredit(device.userId);
                     // Push the updated balance live - without this the
@@ -355,7 +414,7 @@ export const initSocket = (server: HTTPServer) => {
                   });
 
                   // Dispatch message to gateway
-                  sendWhatsappMessage({
+                  const dispatched = sendWhatsappMessage({
                     messageId: outMsg.id,
                     deviceId: device.id,
                     // Reply to the exact WID WhatsApp reported for the sender
@@ -365,6 +424,28 @@ export const initSocket = (server: HTTPServer) => {
                     to: recipient,
                     body: aiReply,
                   });
+
+                  // If the gateway isn't connected, the message would
+                  // otherwise sit at 'queued' forever with no ACK ever
+                  // arriving to correct it - mark it failed immediately so
+                  // it surfaces in the dashboard instead of looking sent.
+                  if (!dispatched) {
+                    await prisma.message.update({
+                      where: { id: outMsg.id },
+                      data: { status: 'failed', failedReason: 'Gateway not connected' },
+                    });
+                    emitToOwner(device.userId, 'message-status-update', {
+                      id: outMsg.id,
+                      deviceId: device.id,
+                      status: 'failed',
+                      failedReason: 'Gateway not connected',
+                      direction: 'outbound',
+                      content: aiReply,
+                      createdAt: outMsg.createdAt,
+                      contactName: contact.name,
+                      contactPhone: contact.phoneNumber,
+                    });
+                  }
                 }
 
                 // Deterministic (not LLM-dependent) brochure attachment: if the
@@ -564,73 +645,130 @@ export const sendWhatsappMessage = (data: { messageId: string; deviceId: string;
 // stays silent instead of replying to a robot.
 const NO_REPLY_SENTINEL = 'NO_REPLY';
 
+// Returned verbatim by the model when it doesn't have enough information
+// (from its own knowledge + the device's configured aiContext) to answer the
+// customer's question confidently - e.g. account-specific requests (order
+// status, refunds, complaints) or questions outside the given business
+// context. Distinguishing this from a genuine answer is what lets the caller
+// hand the conversation to a human instead of guessing/hallucinating.
+const NEED_HUMAN_SENTINEL = 'NEED_HUMAN';
+
 const ABSTAIN_INSTRUCTION = `Anda adalah asisten balas otomatis WhatsApp untuk sebuah bisnis. Balas SEMUA pesan dari calon pelanggan secara normal dan ramah - termasuk sapaan singkat seperti "halo", "hi", "assalamualaikum", "min", "p", dll. Sapaan singkat seperti itu adalah hal wajar dari manusia dan HARUS tetap dibalas seperti biasa (misalnya dengan salam balik dan menawarkan bantuan).
 
-HANYA diam (jangan membalas kalimat apapun, balas HANYA dengan teks persis "${NO_REPLY_SENTINEL}") apabila pesan yang masuk SANGAT JELAS merupakan pesan otomatis dari sistem lain, dicirikan dengan kalimat baku seperti "terima kasih telah menghubungi", "pesan ini dikirim secara otomatis", "balasan otomatis", "kami akan segera merespon", "di luar jam operasional", "auto reply", atau notifikasi sistem (bukan kalimat personal). Jika ragu apakah suatu pesan otomatis atau bukan, JANGAN diam - tetap balas seperti biasa.`;
+HANYA diam (jangan membalas kalimat apapun, balas HANYA dengan teks persis "${NO_REPLY_SENTINEL}") apabila pesan yang masuk SANGAT JELAS merupakan pesan otomatis dari sistem lain, dicirikan dengan kalimat baku seperti "terima kasih telah menghubungi", "pesan ini dikirim secara otomatis", "balasan otomatis", "kami akan segera merespon", "di luar jam operasional", "auto reply", atau notifikasi sistem (bukan kalimat personal). Jika ragu apakah suatu pesan otomatis atau bukan, JANGAN diam - tetap balas seperti biasa.
 
-async function callAiChatbot(prompt: string, context?: string): Promise<string> {
+Apabila pesan adalah pertanyaan sungguhan dari calon pelanggan TETAPI Anda TIDAK memiliki cukup informasi untuk menjawabnya dengan yakin dan akurat (misalnya menanyakan status pesanan/transaksi spesifik, komplain, refund, permintaan bicara dengan manusia/CS, atau hal di luar konteks bisnis yang diberikan ke Anda) - JANGAN mengarang jawaban. Balas HANYA dengan teks persis "${NEED_HUMAN_SENTINEL}" agar percakapan diteruskan ke tim manusia.`;
+
+type AiResult =
+  | { status: 'ok'; text: string }
+  | { status: 'no_reply' }
+  | { status: 'uncertain'; detail: string }
+  | { status: 'error'; detail: string };
+
+const AI_REQUEST_TIMEOUT_MS = 20000;
+
+async function callAiChatbot(prompt: string, context?: string): Promise<AiResult> {
   const openAiKey = process.env.OPENAI_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
   const systemContent = context ? `${ABSTAIN_INSTRUCTION}\n\n${context}` : ABSTAIN_INSTRUCTION;
 
+  const interpret = (aiText: string | undefined, providerLabel: string): AiResult => {
+    if (!aiText) {
+      return { status: 'error', detail: `${providerLabel} returned an empty/unparseable response` };
+    }
+    const trimmed = aiText.trim();
+    if (trimmed.toUpperCase() === NO_REPLY_SENTINEL) {
+      return { status: 'no_reply' };
+    }
+    if (trimmed.toUpperCase() === NEED_HUMAN_SENTINEL) {
+      return { status: 'uncertain', detail: 'Model signaled it lacks enough context to answer confidently' };
+    }
+    return { status: 'ok', text: trimmed };
+  };
+
   if (openAiKey) {
     try {
       console.log('[AI] Querying OpenAI API...');
-      const messages = [{ role: 'system', content: systemContent }];
-      messages.push({ role: 'user', content: prompt });
+      const messages = [{ role: 'system', content: systemContent }, { role: 'user', content: prompt }];
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openAiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages,
-        }),
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
+      let response;
+      try {
+        response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${openAiKey}`,
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages,
+          }),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
+
+      if (!response.ok) {
+        const bodyText = await response.text();
+        console.error(`[OpenAI] Request failed with status ${response.status}:`, bodyText.substring(0, 500));
+        return { status: 'error', detail: `OpenAI HTTP ${response.status}` };
+      }
 
       const resJson = (await response.json()) as any;
       const aiText = resJson.choices?.[0]?.message?.content;
-      if (aiText) {
-        return aiText.trim();
+      if (!aiText) {
+        console.error('[OpenAI] Response parse error. Full response:', JSON.stringify(resJson));
       }
-      console.error('[OpenAI] Response parse error. Full response:', JSON.stringify(resJson));
-      return 'Maaf, saya tidak dapat memahami pesan tersebut saat ini.';
-    } catch (err) {
+      return interpret(aiText, 'OpenAI');
+    } catch (err: any) {
       console.error('[OpenAI] Request failed:', err);
-      return 'Maaf, asisten virtual sedang offline. Silakan coba kembali nanti.';
+      return { status: 'error', detail: err?.name === 'AbortError' ? 'OpenAI request timed out' : `OpenAI request failed: ${err?.message}` };
     }
   }
 
   if (geminiKey) {
     try {
       console.log('[AI] Querying Gemini API...');
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          systemInstruction: { parts: [{ text: systemContent }] },
-        }),
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
+      let response;
+      try {
+        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            systemInstruction: { parts: [{ text: systemContent }] },
+          }),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
+
+      if (!response.ok) {
+        const bodyText = await response.text();
+        console.error(`[Gemini] Request failed with status ${response.status}:`, bodyText.substring(0, 500));
+        return { status: 'error', detail: `Gemini HTTP ${response.status}` };
+      }
 
       const resJson = (await response.json()) as any;
       const aiText = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (aiText) {
-        return aiText.trim();
+      if (!aiText) {
+        console.error('[Gemini] Response parse error. Full response:', JSON.stringify(resJson));
       }
-      console.error('[Gemini] Response parse error. Full response:', JSON.stringify(resJson));
-      return 'Maaf, saya tidak dapat memahami pesan tersebut saat ini.';
-    } catch (err) {
+      return interpret(aiText, 'Gemini');
+    } catch (err: any) {
       console.error('[Gemini] Request failed:', err);
-      return 'Maaf, asisten virtual sedang offline. Silakan coba kembali nanti.';
+      return { status: 'error', detail: err?.name === 'AbortError' ? 'Gemini request timed out' : `Gemini request failed: ${err?.message}` };
     }
   }
 
   console.warn('[AI] Neither OPENAI_API_KEY nor GEMINI_API_KEY is configured.');
-  return 'Maaf, sistem AI Chatbot sedang tidak aktif (kunci API tidak dikonfigurasi).';
+  return { status: 'error', detail: 'No AI provider API key configured' };
 }

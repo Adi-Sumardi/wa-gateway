@@ -1,0 +1,139 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum CreditTransactionType {
+  topup
+  consumption
+  adjustment
+}
+
+enum CreditProductType {
+  ai_credit
+  broadcast_quota
+  warmer_slot
+}
+
+enum CreditOrderStatus {
+  pending
+  paid
+  failed
+  expired
+  cancelled
+}
+
+// Owns every meterable quota, regardless of which domain spends it - AI
+// credit, broadcast sends, warmer sessions, device slots. Keyed by userId
+// (identity-service's User.id), no FK since it's a separate database.
+model UserQuota {
+  userId                 String    @id @db.Uuid @map("user_id")
+  aiCreditBalance        Int       @default(0) @map("ai_credit_balance")
+  maxDevices             Int       @default(4) @map("max_devices")
+  broadcastQuotaMonthly  Int       @default(0) @map("broadcast_quota_monthly")
+  broadcastSentThisMonth Int       @default(0) @map("broadcast_sent_this_month")
+  broadcastQuotaResetAt  DateTime? @map("broadcast_quota_reset_at")
+  maxWarmerSessions      Int       @default(1) @map("max_warmer_sessions")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  @@map("user_quotas")
+}
+
+model AiCreditTransaction {
+  id           String                 @id @default(uuid()) @db.Uuid
+  userId       String                 @db.Uuid @map("user_id")
+  amount       Int
+  balanceAfter Int                    @map("balance_after")
+  type         CreditTransactionType
+  note         String?
+  createdBy    String?                @db.Uuid @map("created_by")
+  createdAt    DateTime               @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("ai_credit_transactions")
+}
+
+model CreditPackage {
+  id          String            @id @default(uuid()) @db.Uuid
+  productType CreditProductType @default(ai_credit) @map("product_type")
+  name        String
+  quotaAmount Int               @default(0) @map("quota_amount")
+  priceRp     Int               @map("price_rp")
+  isActive    Boolean           @default(true) @map("is_active")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  orders      CreditOrder[]
+
+  @@map("credit_packages")
+}
+
+model CreditOrder {
+  id               String            @id @default(uuid()) @db.Uuid
+  userId           String            @db.Uuid @map("user_id")
+  packageId        String?           @db.Uuid @map("package_id")
+  quotaAmount      Int               @default(0) @map("quota_amount")
+  productType      CreditProductType @default(ai_credit) @map("product_type")
+  priceRp          Int               @map("price_rp")
+  midtransOrderId  String            @unique @map("midtrans_order_id")
+  snapToken        String?           @map("snap_token")
+  status           CreditOrderStatus @default(pending)
+  createdAt        DateTime          @default(now()) @map("created_at")
+  paidAt           DateTime?         @map("paid_at")
+  package          CreditPackage?    @relation(fields: [packageId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("credit_orders")
+}
+
+model BundlePackage {
+  id          String        @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  priceRp     Int           @map("price_rp")
+  isActive    Boolean       @default(true) @map("is_active")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  items       BundleItem[]
+  orders      BundleOrder[]
+
+  @@map("bundle_packages")
+}
+
+model BundleItem {
+  id              String            @id @default(uuid()) @db.Uuid
+  bundlePackageId String            @db.Uuid @map("bundle_package_id")
+  productType     CreditProductType @map("product_type")
+  quotaAmount     Int               @map("quota_amount")
+  bundlePackage   BundlePackage     @relation(fields: [bundlePackageId], references: [id], onDelete: Cascade)
+
+  @@map("bundle_items")
+}
+
+model BundleOrder {
+  id              String             @id @default(uuid()) @db.Uuid
+  userId          String             @db.Uuid @map("user_id")
+  bundlePackageId String             @db.Uuid @map("bundle_package_id")
+  priceRp         Int                @map("price_rp")
+  midtransOrderId String             @unique @map("midtrans_order_id")
+  snapToken       String?            @map("snap_token")
+  status          CreditOrderStatus  @default(pending)
+  createdAt       DateTime           @default(now()) @map("created_at")
+  paidAt          DateTime?          @map("paid_at")
+  bundlePackage   BundlePackage      @relation(fields: [bundlePackageId], references: [id], onDelete: Restrict)
+  items           BundleOrderItem[]
+
+  @@index([userId])
+  @@map("bundle_orders")
+}
+
+model BundleOrderItem {
+  id            String            @id @default(uuid()) @db.Uuid
+  bundleOrderId String            @db.Uuid @map("bundle_order_id")
+  productType   CreditProductType @map("product_type")
+  quotaAmount   Int               @map("quota_amount")
+  bundleOrder   BundleOrder       @relation(fields: [bundleOrderId], references: [id], onDelete: Cascade)
+
+  @@map("bundle_order_items")
+}

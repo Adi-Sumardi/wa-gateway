@@ -24,6 +24,8 @@ const PERMISSIONS: { key: string; label: string; category: string }[] = [
   { key: 'audit.view', label: 'View audit log', category: 'Users' },
   { key: 'credits.manage', label: 'Manage AI credits / top-ups', category: 'Users' },
   { key: 'leads.view', label: 'View leads from the landing page', category: 'Leads' },
+  { key: 'ai_escalations.view', label: 'View AI Bot escalations to human', category: 'AI Bot' },
+  { key: 'ai_escalations.manage', label: 'Resolve AI Bot escalations', category: 'AI Bot' },
 ];
 
 // operator/viewer defaults; admin is always fully granted regardless of this table
@@ -37,6 +39,7 @@ const DEFAULT_GRANTS: Record<Exclude<Role, 'admin'>, string[]> = {
     'settings.view',
     'contacts.view', 'contacts.manage',
     'templates.view', 'templates.manage',
+    'ai_escalations.view', 'ai_escalations.manage',
   ],
   viewer: [
     'devices.view',
@@ -46,6 +49,7 @@ const DEFAULT_GRANTS: Record<Exclude<Role, 'admin'>, string[]> = {
     'settings.view',
     'contacts.view',
     'templates.view',
+    'ai_escalations.view',
   ],
 };
 

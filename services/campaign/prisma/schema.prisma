@@ -1,0 +1,101 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum BroadcastStatus {
+  draft
+  scheduled
+  running
+  paused
+  completed
+  failed
+}
+
+enum MessageStatus {
+  queued
+  sent
+  delivered
+  read
+  failed
+}
+
+enum LeadStatus {
+  new
+  contacted
+  converted
+  closed
+}
+
+// deviceId / templateId reference device-gateway-service / template-service
+// - no FK, separate databases.
+model Broadcast {
+  id              String            @id @default(uuid()) @db.Uuid
+  templateId      String?           @db.Uuid @map("template_id")
+  deviceId        String            @db.Uuid @map("device_id")
+  createdBy       String            @db.Uuid @map("created_by")
+  name            String
+  status          BroadcastStatus   @default(draft)
+  scheduledAt     DateTime?         @map("scheduled_at")
+  delayMinSeconds Int               @default(5) @map("delay_min_seconds")
+  delayMaxSeconds Int               @default(15) @map("delay_max_seconds")
+  sleepEnabled    Boolean           @default(false) @map("sleep_enabled")
+  sleepStart      Int               @default(22) @map("sleep_start")
+  sleepEnd        Int               @default(7) @map("sleep_end")
+  rotateDevices   Boolean           @default(false) @map("rotate_devices")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  targets         BroadcastTarget[]
+
+  @@index([createdBy])
+  @@index([deviceId])
+  @@map("broadcasts")
+}
+
+// contactId / messageId reference contact-service / messaging-service.
+model BroadcastTarget {
+  id           String        @id @default(uuid()) @db.Uuid
+  broadcastId  String        @db.Uuid @map("broadcast_id")
+  contactId    String        @db.Uuid @map("contact_id")
+  messageId    String?       @db.Uuid @map("message_id")
+  status       MessageStatus @default(queued)
+  failedReason String?       @map("failed_reason")
+  sentAt       DateTime?     @map("sent_at")
+  broadcast    Broadcast     @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+
+  @@index([broadcastId])
+  @@index([contactId])
+  @@map("broadcast_targets")
+}
+
+model Lead {
+  id              String     @id @default(uuid()) @db.Uuid
+  name            String
+  phone           String
+  email           String?
+  packageInterest String     @map("package_interest")
+  message         String?
+  status          LeadStatus @default(new)
+  notes           String?
+  createdAt       DateTime   @default(now()) @map("created_at")
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("leads")
+}
+
+model LinkTracker {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String?   @db.Uuid @map("user_id")
+  code          String    @unique
+  originalUrl   String    @map("original_url")
+  clicks        Int       @default(0)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  lastClickedAt DateTime? @map("last_clicked_at")
+
+  @@index([userId])
+  @@map("link_trackers")
+}

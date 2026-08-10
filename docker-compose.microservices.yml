@@ -1,0 +1,244 @@
+version: '3.8'
+
+# Target microservices topology from SendaGo_WA_Architecture.md / the system
+# review. Runs alongside (does NOT replace) docker-compose.yml's monolith -
+# see MICROSERVICES_CUTOVER.md for how to actually switch traffic over.
+#
+#   docker compose -f docker-compose.microservices.yml up --build
+
+x-common-env: &common-env
+  JWT_SECRET: sendago-super-secret-jwt-key
+  GATEWAY_TOKEN: sendago-gateway-secret-token
+  NATS_URL: nats://nats:4222
+  TZ: Asia/Jakarta
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: sendago-ms-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      TZ: Asia/Jakarta
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_ms_data:/var/lib/postgresql/data
+      - ./services/_infra/init-multi-db.sh:/docker-entrypoint-initdb.d/init-multi-db.sh
+
+  nats:
+    image: nats:2.10-alpine
+    container_name: sendago-ms-nats
+    restart: always
+    ports:
+      - "4222:4222"
+
+  identity:
+    build: { context: ./services/identity }
+    container_name: sendago-identity
+    restart: always
+    depends_on: [postgres, nats]
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/identity_db?schema=public
+    ports: ["6001:6001"]
+
+  device-gateway:
+    build: { context: ./services/device-gateway }
+    container_name: sendago-device-gateway
+    restart: always
+    depends_on: [postgres, nats, contact]
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/device_db?schema=public
+      IDENTITY_SERVICE_URL: http://identity:6001
+      BILLING_SERVICE_URL: http://billing:6009
+      CONTACT_SERVICE_URL: http://contact:6006
+      CORS_ORIGIN: "*"
+    ports: ["6002:6002"]
+
+  messaging:
+    build: { context: ./services/messaging }
+    container_name: sendago-messaging
+    restart: always
+    depends_on: [postgres, nats, device-gateway, contact]
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/messaging_db?schema=public
+      DEVICE_GATEWAY_SERVICE_URL: http://device-gateway:6002
+      CONTACT_SERVICE_URL: http://contact:6006
+      CAMPAIGN_SERVICE_URL: http://campaign:6008
+      WARMER_SERVICE_URL: http://warmer:6010
+    ports: ["6003:6003"]
+
+  conversation-ai:
+    build: { context: ./services/conversation-ai }
+    container_name: sendago-conversation-ai
+    restart: always
+    depends_on: [postgres, nats, device-gateway, messaging, identity, billing]
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/conversation_db?schema=public
+      DEVICE_GATEWAY_SERVICE_URL: http://device-gateway:6002
+      MESSAGING_SERVICE_URL: http://messaging:6003
+      IDENTITY_SERVICE_URL: http://identity:6001
+      BILLING_SERVICE_URL: http://billing:6009
+      CONTACT_SERVICE_URL: http://contact:6006
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    ports: ["6004:6004"]
+
+  notification:
+    build: { context: ./services/notification }
+    container_name: sendago-notification
+    restart: always
+    depends_on: [postgres, nats, device-gateway, contact]
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/notification_db?schema=public
+      DEVICE_GATEWAY_SERVICE_URL: http://device-gateway:6002
+      CONTACT_SERVICE_URL: http://contact:6006
+      CORS_ORIGIN: "*"
+    ports: ["6005:6005"]
+
+  contact:
+    build: { context: ./services/contact }
+    container_name: sendago-contact
+    restart: always
+    depends_on: [postgres, nats]
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/contact_db?schema=public
+    ports: ["6006:6006"]
+
+  template:
+    build: { context: ./services/template }
+    container_name: sendago-template
+    restart: always
+    depends_on: [postgres, nats]
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/template_db?schema=public
+    ports: ["6007:6007"]
+
+  campaign:
+    build: { context: ./services/campaign }
+    container_name: sendago-campaign
+    restart: always
+    depends_on: [postgres, nats, device-gateway, messaging, template, contact, billing]
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/campaign_db?schema=public
+      DEVICE_GATEWAY_SERVICE_URL: http://device-gateway:6002
+      MESSAGING_SERVICE_URL: http://messaging:6003
+      TEMPLATE_SERVICE_URL: http://template:6007
+      CONTACT_SERVICE_URL: http://contact:6006
+      BILLING_SERVICE_URL: http://billing:6009
+    ports: ["6008:6008"]
+
+  billing:
+    build: { context: ./services/billing }
+    container_name: sendago-billing
+    restart: always
+    depends_on: [postgres, nats, identity]
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/billing_db?schema=public
+      IDENTITY_SERVICE_URL: http://identity:6001
+      MIDTRANS_SERVER_KEY: ${MIDTRANS_SERVER_KEY:-}
+      MIDTRANS_IS_PRODUCTION: ${MIDTRANS_IS_PRODUCTION:-false}
+    ports: ["6009:6009"]
+
+  warmer:
+    build: { context: ./services/warmer }
+    container_name: sendago-warmer
+    restart: always
+    depends_on: [postgres, nats, device-gateway, billing]
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/warmer_db?schema=public
+      DEVICE_GATEWAY_SERVICE_URL: http://device-gateway:6002
+      BILLING_SERVICE_URL: http://billing:6009
+    ports: ["6010:6010"]
+
+  audit:
+    build: { context: ./services/audit }
+    container_name: sendago-audit
+    restart: always
+    depends_on: [postgres, nats, identity]
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/audit_db?schema=public
+      IDENTITY_SERVICE_URL: http://identity:6001
+    ports: ["6011:6011"]
+
+  api-gateway:
+    build: { context: ./services/api-gateway }
+    container_name: sendago-api-gateway
+    restart: always
+    depends_on:
+      - identity
+      - device-gateway
+      - messaging
+      - conversation-ai
+      - notification
+      - contact
+      - template
+      - campaign
+      - billing
+      - warmer
+      - audit
+    environment:
+      <<: *common-env
+      IDENTITY_SERVICE_URL: http://identity:6001
+      DEVICE_GATEWAY_SERVICE_URL: http://device-gateway:6002
+      MESSAGING_SERVICE_URL: http://messaging:6003
+      CONVERSATION_AI_SERVICE_URL: http://conversation-ai:6004
+      NOTIFICATION_SERVICE_URL: http://notification:6005
+      CONTACT_SERVICE_URL: http://contact:6006
+      TEMPLATE_SERVICE_URL: http://template:6007
+      CAMPAIGN_SERVICE_URL: http://campaign:6008
+      BILLING_SERVICE_URL: http://billing:6009
+      WARMER_SERVICE_URL: http://warmer:6010
+      AUDIT_SERVICE_URL: http://audit:6011
+    ports: ["6000:6000"]
+
+  # The WhatsApp worker process (whatsapp-web.js) - same image as the
+  # monolith setup, just repointed at device-gateway-service instead of the
+  # old backend/.
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: sendago-ms-gateway
+    restart: always
+    depends_on: [device-gateway]
+    environment:
+      BACKEND_URL: http://device-gateway:6002
+      GATEWAY_TOKEN: sendago-gateway-secret-token
+      MIN_SEND_DELAY: 3000
+      MAX_SEND_DELAY: 7000
+      TZ: Asia/Jakarta
+    volumes:
+      - gateway_ms_auth:/app/.wwebjs_auth
+      - gateway_ms_cache:/app/.wwebjs_cache
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:6000}
+        - VITE_NOTIFICATION_URL=${VITE_NOTIFICATION_URL:-http://localhost:6005}
+        - VITE_MIDTRANS_CLIENT_KEY=${MIDTRANS_CLIENT_KEY:-}
+        - VITE_MIDTRANS_IS_PRODUCTION=${MIDTRANS_IS_PRODUCTION:-false}
+    container_name: sendago-ms-frontend
+    restart: always
+    ports:
+      - "5174:80"
+
+volumes:
+  postgres_ms_data:
+  gateway_ms_auth:
+  gateway_ms_cache:

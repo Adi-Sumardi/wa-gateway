@@ -1,0 +1,34 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Webhook {
+  id         String       @id @default(uuid()) @db.Uuid
+  userId     String?      @db.Uuid @map("user_id")
+  url        String
+  eventTypes Json         @map("event_types")
+  isActive   Boolean      @default(true) @map("is_active")
+  createdAt  DateTime     @default(now()) @map("created_at")
+  logs       WebhookLog[]
+
+  @@index([userId])
+  @@map("webhooks")
+}
+
+model WebhookLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  webhookId     String   @db.Uuid @map("webhook_id")
+  eventType     String   @map("event_type")
+  responseCode  Int      @map("response_code")
+  payload       String
+  createdAt     DateTime @default(now()) @map("created_at")
+  webhook       Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId])
+  @@map("webhook_logs")
+}

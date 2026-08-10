@@ -1,0 +1,33 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum DeviceStatus {
+  connecting
+  connected
+  disconnected
+  banned
+}
+
+model Device {
+  id              String       @id @default(uuid()) @db.Uuid
+  userId          String       @db.Uuid @map("user_id")
+  label           String
+  phoneNumber     String?      @map("phone_number")
+  status          DeviceStatus @default(disconnected)
+  lastConnectedAt DateTime?    @map("last_connected_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  aiEnabled       Boolean      @default(false) @map("ai_enabled")
+  aiContext       String?      @map("ai_context")
+  aiWebsiteUrl    String?      @map("ai_website_url")
+  aiBrochureUrl   String?      @map("ai_brochure_url")
+  aiPriceList     String?      @map("ai_price_list")
+
+  @@index([userId])
+  @@map("devices")
+}

@@ -32,7 +32,8 @@ import {
   Contact as ContactIcon,
   ArrowRightLeft,
   Coins,
-  UserPlus
+  UserPlus,
+  AlertTriangle
 } from 'lucide-react';
 import BroadcastPage from './pages/BroadcastPage';
 import WarmerPage from './pages/WarmerPage';
@@ -40,9 +41,15 @@ import UsersRolesPage from './pages/UsersRolesPage';
 import ContactsPage from './pages/ContactsPage';
 import TopUpPage from './pages/TopUpPage';
 import LeadsPage from './pages/LeadsPage';
+import AiEscalationsPage from './pages/AiEscalationsPage';
 import LandingPage from './pages/LandingPage';
 
 const BACKEND_URL = (import.meta as any).env?.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:5001`;
+// In the microservices topology the realtime socket is served by
+// notification-service directly (not proxied through api-gateway), so it
+// gets its own env var - falls back to BACKEND_URL for the monolith, where
+// one process serves both REST and the socket.
+const SOCKET_URL = (import.meta as any).env?.VITE_NOTIFICATION_URL || BACKEND_URL;
 
 interface UserData {
   id: string;
@@ -128,7 +135,8 @@ export default function App() {
   const [showPassword, setShowPassword] = useState(false);
 
   // Navigation & Data state
-  const [activeTab, setActiveTab] = useState<'overview' | 'devices' | 'messages' | 'broadcast' | 'warmer' | 'settings' | 'users' | 'contacts' | 'topup' | 'leads'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'devices' | 'messages' | 'broadcast' | 'warmer' | 'settings' | 'users' | 'contacts' | 'topup' | 'leads' | 'ai-escalations'>('overview');
+  const [openEscalationCount, setOpenEscalationCount] = useState(0);
   const [permissions, setPermissions] = useState<string[]>([]);
   const hasPermission = (key: string) => permissions.includes(key);
   const [activeDocLanguage, setActiveDocLanguage] = useState<'curl' | 'nodejs' | 'python' | 'php'>('curl');
@@ -192,13 +200,14 @@ export default function App() {
   const loadData = async () => {
     try {
       const headers = getHeaders();
-      const [devsRes, msgsRes, keysRes, hooksRes, wLogsRes, linksRes] = await Promise.all([
+      const [devsRes, msgsRes, keysRes, hooksRes, wLogsRes, linksRes, escRes] = await Promise.all([
         fetch(`${BACKEND_URL}/api/devices`, { headers }),
         fetch(`${BACKEND_URL}/api/messages`, { headers }),
         fetch(`${BACKEND_URL}/api/apikeys`, { headers }),
         fetch(`${BACKEND_URL}/api/webhooks`, { headers }),
         fetch(`${BACKEND_URL}/api/webhooks/logs`, { headers }),
-        fetch(`${BACKEND_URL}/api/links`, { headers })
+        fetch(`${BACKEND_URL}/api/links`, { headers }),
+        fetch(`${BACKEND_URL}/api/ai-escalations?status=open&limit=1`, { headers })
       ]);
 
       if (devsRes.status === 401) return handleLogout();
@@ -219,6 +228,7 @@ export default function App() {
       if (hooksRes.ok) setWebhooks(await hooksRes.json());
       if (wLogsRes.ok) setWebhookLogs(await wLogsRes.json());
       if (linksRes.ok) setLinks(await linksRes.json());
+      if (escRes.ok) setOpenEscalationCount((await escRes.json()).total);
     } catch (e) {
       console.error('Failed to load dashboard data:', e);
     }
@@ -298,7 +308,7 @@ export default function App() {
 
   const initSocket = () => {
     if (socketRef.current) socketRef.current.disconnect();
-    const socket = io(BACKEND_URL, { auth: { type: 'dashboard', token } });
+    const socket = io(SOCKET_URL, { auth: { type: 'dashboard', token } });
     socketRef.current = socket;
 
     socket.on('device-status', (data: { deviceId: string; status: Device['status']; phoneNumber?: string }) => {
@@ -347,6 +357,11 @@ export default function App() {
 
     socket.on('ai-credit-depleted', (data: { deviceId: string; deviceLabel: string }) => {
       addToast(`Saldo AI habis untuk device "${data.deviceLabel}". Minta admin untuk top up.`, 'error');
+    });
+
+    socket.on('ai-escalation', (data: { deviceLabel: string; contactName: string; contactPhone: string; question: string }) => {
+      setOpenEscalationCount(prev => prev + 1);
+      addToast(`AI Bot tidak bisa menjawab "${data.contactName || data.contactPhone}" di device "${data.deviceLabel}". Perlu ditangani manual.`, 'warning');
     });
 
     socket.on('quota-updated', (data: { productType: 'ai_credit' | 'broadcast_quota' | 'warmer_slot'; newValue: number }) => {
@@ -852,6 +867,20 @@ export default function App() {
             >
               <UserPlus className="w-5 h-5" />
               <span className="text-sm">Leads</span>
+            </button>
+          )}
+          {hasPermission('ai_escalations.view') && (
+            <button
+              onClick={() => { setActiveTab('ai-escalations'); setIsSidebarOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-semibold ${activeTab === 'ai-escalations' ? 'bg-primary-container text-on-primary-container sidebar-active-pill' : 'text-on-surface-variant hover:bg-surface-container-high hover:text-primary'}`}
+            >
+              <AlertTriangle className="w-5 h-5" />
+              <span className="text-sm flex-1 text-left">AI Escalations</span>
+              {openEscalationCount > 0 && (
+                <span className="bg-error text-on-error text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                  {openEscalationCount > 99 ? '99+' : openEscalationCount}
+                </span>
+              )}
             </button>
           )}
         </nav>
@@ -1481,6 +1510,16 @@ export default function App() {
               backendUrl={BACKEND_URL}
               getHeaders={getHeaders}
               addToast={addToast}
+            />
+          )}
+
+          {activeTab === 'ai-escalations' && hasPermission('ai_escalations.view') && (
+            <AiEscalationsPage
+              backendUrl={BACKEND_URL}
+              getHeaders={getHeaders}
+              addToast={addToast}
+              canManage={hasPermission('ai_escalations.manage')}
+              onResolved={() => setOpenEscalationCount(prev => Math.max(0, prev - 1))}
             />
           )}
 

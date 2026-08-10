@@ -1,0 +1,46 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Contact {
+  id          String               @id @default(uuid()) @db.Uuid
+  userId      String?              @db.Uuid @map("user_id")
+  name        String
+  phoneNumber String               @map("phone_number")
+  tags        Json?
+  notes       String?
+  optedOut    Boolean              @default(false) @map("opted_out")
+  createdAt   DateTime             @default(now()) @map("created_at")
+  memberships ContactGroupMember[]
+
+  @@unique([userId, phoneNumber])
+  @@map("contacts")
+}
+
+model ContactGroup {
+  id          String               @id @default(uuid()) @db.Uuid
+  userId      String?              @db.Uuid @map("user_id")
+  name        String
+  description String?
+  createdAt   DateTime             @default(now()) @map("created_at")
+  members     ContactGroupMember[]
+
+  @@map("contact_groups")
+}
+
+model ContactGroupMember {
+  id        String       @id @default(uuid()) @db.Uuid
+  contactId String       @db.Uuid @map("contact_id")
+  groupId   String       @db.Uuid @map("group_id")
+  contact   Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  group     ContactGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([contactId, groupId])
+  @@index([groupId])
+  @@map("contact_group_members")
+}
