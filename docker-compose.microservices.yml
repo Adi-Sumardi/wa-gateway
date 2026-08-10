@@ -22,7 +22,10 @@ services:
       POSTGRES_PASSWORD: postgres
       TZ: Asia/Jakarta
     ports:
-      - "5432:5432"
+      # Host-side 5433, not 5432 - the legacy monolith's own Postgres
+      # container already owns host:5432 when both stacks run side by side.
+      # Internal container-to-container traffic (postgres:5432) is unaffected.
+      - "5433:5432"
     volumes:
       - postgres_ms_data:/var/lib/postgresql/data
       - ./services/_infra/init-multi-db.sh:/docker-entrypoint-initdb.d/init-multi-db.sh
