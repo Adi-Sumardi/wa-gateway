@@ -1,16 +1,32 @@
-version: '3.8'
-
 # Target microservices topology from SendaGo_WA_Architecture.md / the system
 # review. Runs alongside (does NOT replace) docker-compose.yml's monolith -
 # see MICROSERVICES_CUTOVER.md for how to actually switch traffic over.
 #
 #   docker compose -f docker-compose.microservices.yml up --build
+#
+# INCIDENT NOTE (2026-08-10): this file used to have no explicit project
+# name, so Docker Compose derived one from the working directory - the same
+# directory the legacy monolith's docker-compose.yml is run from, giving
+# both stacks the SAME project name. Compose tracks "which container belongs
+# to which service" by (project, service_name), and both files define a
+# service literally called `postgres` - so `up` on this file treated the
+# monolith's live Postgres as an out-of-date instance of the SAME service
+# and replaced it with this file's (empty) one, taking production down
+# silently for ~17.5 hours until caught. `name:` below pins this file to its
+# own project unconditionally, so its `postgres` service can never again be
+# confused with the monolith's - regardless of which directory either is run
+# from, and even if someone forgets to pass -p on the command line.
+name: sendago-microservices
 
 x-common-env: &common-env
   JWT_SECRET: sendago-super-secret-jwt-key
   GATEWAY_TOKEN: sendago-gateway-secret-token
   NATS_URL: nats://nats:4222
   TZ: Asia/Jakarta
+
+networks:
+  default:
+    name: sendago-microservices-net
 
 services:
   postgres:
