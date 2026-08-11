@@ -47,6 +47,21 @@ export async function startEventSubscriptions() {
       const device = (await deviceResp.json()) as any;
       if (!device.aiEnabled) return;
 
+      // A prior message from this contact already stumped the AI and is
+      // waiting on a human - stay completely silent (no reply, no repeat
+      // holding message, no new escalation row) until an admin resolves it
+      // via POST /ai-escalations/:id/resolve. Resuming is automatic: once
+      // resolved, the next inbound message finds no open row and the AI
+      // picks the conversation back up on its own.
+      const openEscalation = await prisma.aiEscalation.findFirst({
+        where: { deviceId: data.deviceId, contactId: data.contactId, status: 'open' },
+        select: { id: true },
+      });
+      if (openEscalation) {
+        console.log(`[conversation-ai] Staying silent for ${data.contactPhone} - escalation ${openEscalation.id} still open, waiting on a human`);
+        return;
+      }
+
       const userResp = await fetch(`${IDENTITY_URL}/internal/users/${device.userId}`);
       const user = userResp.ok ? ((await userResp.json()) as any) : null;
       const isMetered = user?.role !== 'admin';

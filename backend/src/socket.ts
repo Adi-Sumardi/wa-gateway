@@ -310,6 +310,23 @@ export const initSocket = (server: HTTPServer) => {
             // Trigger in background to keep socket response fast
             (async () => {
               try {
+                // A prior message from this same contact already stumped the
+                // AI and is waiting on a human - stay completely silent
+                // (no reply, no repeat holding message, no new escalation)
+                // until an admin resolves it, instead of the bot cheerfully
+                // trying again on every new message in the same
+                // conversation. Resuming is automatic: once resolved, the
+                // next inbound message finds no open row here and the AI
+                // picks the conversation back up on its own.
+                const openEscalation = await prisma.aiEscalation.findFirst({
+                  where: { deviceId: device.id, contactId: contact.id, status: 'open' },
+                  select: { id: true },
+                });
+                if (openEscalation) {
+                  console.log(`[AI] Staying silent for ${data.from} - escalation ${openEscalation.id} still open, waiting on a human`);
+                  return;
+                }
+
                 // Admin's own AI usage is unlimited/free, matching the
                 // "admin bypasses" pattern used everywhere else in this app -
                 // only metered for non-admin (member) device owners.
