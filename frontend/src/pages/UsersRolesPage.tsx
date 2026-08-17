@@ -7,6 +7,7 @@ interface UserRow {
   email: string;
   role: 'admin' | 'operator' | 'viewer';
   isActive: boolean;
+  twoFactorEnabled?: boolean;
   createdAt: string;
   aiCreditBalance: number;
   maxDevices: number;
@@ -267,6 +268,28 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
     }
   };
 
+  const handleReset2FA = (u: UserRow) => {
+    setConfirmDialog({
+      title: 'Reset Google 2FA',
+      message: `Apakah Anda yakin ingin me-reset Google 2FA untuk "${u.name}" (${u.email})? Pengguna akan dapat login tanpa 2FA hingga mengaktifkannya kembali.`,
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          const res = await fetch(`${backendUrl}/api/users/${u.id}/reset-2fa`, {
+            method: 'POST',
+            headers: getHeaders(),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Gagal me-reset 2FA');
+          addToast(data.message || '2FA berhasil di-reset', 'success');
+          setUsers((prev) => prev.map((item) => (item.id === u.id ? { ...item, twoFactorEnabled: false } : item)));
+        } catch (err: any) {
+          addToast(err.message || 'Gagal me-reset 2FA', 'error');
+        }
+      },
+    });
+  };
+
   const toggleMatrixCell = (key: string, matrixRole: 'operator' | 'viewer') => {
     setPendingMatrix((prev) =>
       prev.map((p) => (p.key === key ? { ...p, grants: { ...p.grants, [matrixRole]: !p.grants[matrixRole] } } : p))
@@ -372,6 +395,7 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
                 <th className="py-3 px-4">Email</th>
                 <th className="py-3 px-4">Role</th>
                 <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4">Google 2FA</th>
                 <th className="py-3 px-4">AI Credits</th>
                 <th className="py-3 px-4">Max Devices</th>
                 <th className="py-3 px-4">Actions</th>
@@ -405,13 +429,20 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
                       {u.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
+                  <td className="py-3.5 px-4">
+                    <span
+                      className={`px-2 py-0.5 rounded-full font-bold text-[9px] uppercase tracking-wider ${u.twoFactorEnabled ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-zinc-100 text-zinc-600'}`}
+                    >
+                      {u.twoFactorEnabled ? '🔒 Aktif' : 'Nonaktif'}
+                    </span>
+                  </td>
                   <td className="py-3.5 px-4 font-mono">
                     {u.role === 'admin' ? '∞' : `🪙 ${u.aiCreditBalance}`}
                   </td>
                   <td className="py-3.5 px-4 font-mono">
                     {u.role === 'admin' ? '∞' : u.maxDevices}
                   </td>
-                  <td className="py-3.5 px-4 flex gap-2">
+                  <td className="py-3.5 px-4 flex flex-wrap gap-2">
                     <button
                       onClick={() => (topUpUserId === u.id ? setTopUpUserId(null) : openTopUp(u))}
                       className="px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase bg-primary text-on-primary"
@@ -424,6 +455,15 @@ export default function UsersRolesPage({ backendUrl, getHeaders, addToast, curre
                     >
                       {editingUserId === u.id ? 'Close' : 'Edit'}
                     </button>
+                    {u.twoFactorEnabled && (
+                      <button
+                        onClick={() => handleReset2FA(u)}
+                        className="px-3 py-1.5 rounded-xl font-bold text-[10px] uppercase bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200"
+                        title="Reset Google 2FA jika user kehilangan HP"
+                      >
+                        Reset 2FA
+                      </button>
+                    )}
                     <button
                       onClick={() => handleToggleActive(u)}
                       disabled={u.id === currentUserId}

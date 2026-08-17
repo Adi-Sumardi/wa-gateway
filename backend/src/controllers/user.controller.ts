@@ -11,6 +11,7 @@ const USER_SELECT = {
   id: true, name: true, email: true, role: true, isActive: true, createdAt: true,
   aiCreditBalance: true, maxDevices: true,
   broadcastQuotaMonthly: true, broadcastSentThisMonth: true, maxWarmerSessions: true,
+  twoFactorEnabled: true,
 };
 
 export const listUsers = async (req: AuthenticatedRequest, res: Response) => {
@@ -229,3 +230,30 @@ export const getMyPermissions = async (req: AuthenticatedRequest, res: Response)
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+export const resetUser2FA = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const { id } = req.params;
+
+  try {
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    await prisma.user.update({
+      where: { id },
+      data: {
+        twoFactorEnabled: false,
+        twoFactorSecret: null,
+      },
+    });
+
+    logAudit(req.user.id, 'user.reset_2fa', `Reset Google 2FA for user "${target.email}"`);
+    return res.json({ message: `Google 2FA untuk pengguna ${target.email} berhasil direset` });
+  } catch (err) {
+    console.error('Reset user 2FA error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+

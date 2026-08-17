@@ -54,6 +54,10 @@ app.get('/health', (req, res) => {
 
 // Authentication Routes
 app.post('/api/auth/login', authController.login);
+app.post('/api/auth/2fa/verify-login', authController.verify2FALogin);
+app.post('/api/auth/2fa/setup', authenticateJWT, authController.setup2FA);
+app.post('/api/auth/2fa/enable', authenticateJWT, authController.enable2FA);
+app.post('/api/auth/2fa/disable', authenticateJWT, authController.disable2FA);
 app.post('/api/auth/register', authController.register);
 app.get('/api/auth/me', authenticateJWT, authController.me);
 app.get('/api/permissions/me', authenticateJWT, userController.getMyPermissions);
@@ -62,6 +66,7 @@ app.get('/api/permissions/me', authenticateJWT, userController.getMyPermissions)
 app.get('/api/users', authenticateJWT, requirePermission('users.manage'), userController.listUsers);
 app.post('/api/users', authenticateJWT, requirePermission('users.manage'), userController.createUser);
 app.patch('/api/users/:id', authenticateJWT, requirePermission('users.manage'), userController.updateUser);
+app.post('/api/users/:id/reset-2fa', authenticateJWT, requirePermission('users.manage'), userController.resetUser2FA);
 app.get('/api/permissions', authenticateJWT, requirePermission('users.manage'), userController.getPermissionMatrix);
 app.put('/api/permissions', authenticateJWT, requirePermission('users.manage'), userController.updatePermissionMatrix);
 app.get('/api/audit-logs', authenticateJWT, requirePermission('audit.view'), userController.getAuditLogs);

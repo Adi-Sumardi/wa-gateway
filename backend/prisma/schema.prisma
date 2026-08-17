@@ -71,6 +71,8 @@ model User {
   broadcastSentThisMonth Int       @default(0) @map("broadcast_sent_this_month")
   broadcastQuotaResetAt  DateTime? @map("broadcast_quota_reset_at")
   maxWarmerSessions      Int       @default(1) @map("max_warmer_sessions")
+  twoFactorEnabled       Boolean   @default(false) @map("two_factor_enabled")
+  twoFactorSecret        String?   @map("two_factor_secret") @db.Text
   createdAt     DateTime   @default(now()) @map("created_at")
   devices       Device[]
   apiKeys       ApiKey[]

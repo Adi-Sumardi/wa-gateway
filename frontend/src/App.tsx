@@ -33,7 +33,8 @@ import {
   ArrowRightLeft,
   Coins,
   UserPlus,
-  AlertTriangle
+  AlertTriangle,
+  Shield
 } from 'lucide-react';
 import BroadcastPage from './pages/BroadcastPage';
 import WarmerPage from './pages/WarmerPage';
@@ -61,6 +62,7 @@ interface UserData {
   broadcastQuotaMonthly?: number;
   broadcastSentThisMonth?: number;
   maxWarmerSessions?: number;
+  twoFactorEnabled?: boolean;
 }
 
 interface Device {
@@ -133,6 +135,25 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // 2FA Auth state
+  const [require2FA, setRequire2FA] = useState(false);
+  const [mfaToken, setMfaToken] = useState('');
+  const [mfaEmail, setMfaEmail] = useState('');
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [mfaLoading, setMfaLoading] = useState(false);
+
+  // 2FA Modal & Setup state
+  const [show2FAModal, setShow2FAModal] = useState(false);
+  const [twoFactorSetupStep, setTwoFactorSetupStep] = useState<'status' | 'scan'>('status');
+  const [setup2FASecret, setSetup2FASecret] = useState('');
+  const [setup2FAQrCode, setSetup2FAQrCode] = useState('');
+  const [setup2FAToken, setSetup2FAToken] = useState('');
+  const [setupVerifyCode, setSetupVerifyCode] = useState('');
+  const [setupLoading, setSetupLoading] = useState(false);
+  const [disableCode, setDisableCode] = useState('');
+  const [disablePassword, setDisablePassword] = useState('');
+  const [disableLoading, setDisableLoading] = useState(false);
 
   // Navigation & Data state
   const [activeTab, setActiveTab] = useState<'overview' | 'devices' | 'messages' | 'broadcast' | 'warmer' | 'settings' | 'users' | 'contacts' | 'topup' | 'leads' | 'ai-escalations'>('overview');
@@ -391,6 +412,15 @@ export default function App() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Login failed');
+
+      if (data.require2FA) {
+        setRequire2FA(true);
+        setMfaToken(data.mfaToken);
+        setMfaEmail(data.email);
+        setTwoFactorCode('');
+        return;
+      }
+
       localStorage.setItem('token', data.token);
       setToken(data.token);
       addToast('Login berhasil! Selamat datang kembali.', 'success');
@@ -401,6 +431,114 @@ export default function App() {
       }
     } catch (err: any) {
       setLoginError(err.message);
+    }
+  };
+
+  const handleVerify2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!twoFactorCode || twoFactorCode.length < 6) return;
+    setLoginError('');
+    setMfaLoading(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/auth/2fa/verify-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mfaToken, code: twoFactorCode })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Verifikasi 2FA gagal');
+      localStorage.setItem('token', data.token);
+      setToken(data.token);
+      setRequire2FA(false);
+      setTwoFactorCode('');
+      setMfaToken('');
+      addToast('Verifikasi 2FA berhasil! Selamat datang kembali.', 'success');
+      if (window.location.pathname !== '/') {
+        window.history.replaceState({}, '', '/');
+      }
+    } catch (err: any) {
+      setLoginError(err.message);
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
+  const open2FAModal = () => {
+    setShow2FAModal(true);
+    setTwoFactorSetupStep('status');
+    setSetupVerifyCode('');
+    setDisableCode('');
+    setDisablePassword('');
+  };
+
+  const start2FASetup = async () => {
+    setSetupLoading(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/auth/2fa/setup`, {
+        method: 'POST',
+        headers: getHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Gagal memulai setup 2FA');
+      setSetup2FASecret(data.secret);
+      setSetup2FAQrCode(data.qrCode);
+      setSetup2FAToken(data.setupToken);
+      setTwoFactorSetupStep('scan');
+    } catch (err: any) {
+      addToast(err.message || 'Gagal menyiapkan 2FA', 'error');
+    } finally {
+      setSetupLoading(false);
+    }
+  };
+
+  const confirmEnable2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!setupVerifyCode || setupVerifyCode.length < 6) return;
+    setSetupLoading(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/auth/2fa/enable`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ setupToken: setup2FAToken, code: setupVerifyCode })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Gagal mengaktifkan 2FA');
+      addToast(data.message || 'Google 2FA berhasil diaktifkan!', 'success');
+      if (user) {
+        setUser({ ...user, twoFactorEnabled: true });
+      }
+      setShow2FAModal(false);
+    } catch (err: any) {
+      addToast(err.message || 'Gagal mengaktifkan 2FA', 'error');
+    } finally {
+      setSetupLoading(false);
+    }
+  };
+
+  const handleDisable2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!disableCode && !disablePassword) {
+      addToast('Masukkan Kode OTP 2FA atau Password Anda', 'error');
+      return;
+    }
+    setDisableLoading(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/auth/2fa/disable`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ code: disableCode || undefined, password: disablePassword || undefined })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Gagal menonaktifkan 2FA');
+      addToast(data.message || 'Google 2FA berhasil dinonaktifkan', 'info');
+      if (user) {
+        setUser({ ...user, twoFactorEnabled: false });
+      }
+      setShow2FAModal(false);
+    } catch (err: any) {
+      addToast(err.message || 'Gagal menonaktifkan 2FA', 'error');
+    } finally {
+      setDisableLoading(false);
     }
   };
 
@@ -675,69 +813,130 @@ export default function App() {
               <a href="/" className="text-xs font-semibold text-on-surface-variant hover:text-primary transition-colors">← Beranda</a>
             </div>
 
-            <div className="mb-8">
-              <h2 className="text-3xl font-bold text-on-surface mb-2 font-headline-lg">Welcome back</h2>
-              <p className="text-on-surface-variant font-body-md">Log in to manage your high-volume WhatsApp communication.</p>
-            </div>
-
-            {loginError && (
-              <div className="flex items-start gap-3 bg-error-container text-error px-4 py-3.5 rounded-xl mb-6 border-2 border-error/30 animate-toast-in">
-                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-bold text-sm">Login Gagal</p>
-                  <p className="text-xs mt-0.5 opacity-90">{loginError}</p>
+            {require2FA ? (
+              <div>
+                <div className="mb-6 text-center">
+                  <div className="w-14 h-14 bg-emerald-100 text-emerald-800 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-inner">
+                    <Shield className="w-7 h-7" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-on-surface font-headline-lg">Verifikasi 2FA</h2>
+                  <p className="text-on-surface-variant text-xs mt-1">
+                    Buka aplikasi <strong>Google Authenticator</strong> di HP Anda dan masukkan 6 digit kode OTP untuk <strong>{mfaEmail}</strong>.
+                  </p>
                 </div>
-              </div>
-            )}
 
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-1">
-                <label className="font-label-md text-xs font-semibold text-on-surface-variant px-1" htmlFor="email">Email</label>
-                <div className="relative group">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-outline group-focus-within:text-primary transition-colors" />
-                  <input 
-                    className="w-full pl-12 pr-4 py-3.5 bg-surface-container-low border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" 
-                    id="email" 
-                    type="email" 
-                    placeholder="admin@sendago.com" 
-                    required 
-                    value={loginEmail} 
-                    onChange={e => setLoginEmail(e.target.value)}
-                  />
-                </div>
-              </div>
+                {loginError && (
+                  <div className="flex items-start gap-3 bg-error-container text-error px-4 py-3 rounded-xl mb-6 border border-error/30 animate-toast-in">
+                    <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs">{loginError}</p>
+                  </div>
+                )}
 
-              <div className="space-y-1">
-                <label className="font-label-md text-xs font-semibold text-on-surface-variant px-1" htmlFor="password">Password</label>
-                <div className="relative group">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-outline group-focus-within:text-primary transition-colors" />
-                  <input 
-                    className="w-full pl-12 pr-12 py-3.5 bg-surface-container-low border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" 
-                    id="password" 
-                    type={showPassword ? 'text' : 'password'} 
-                    placeholder="••••••••" 
-                    required 
-                    value={loginPassword} 
-                    onChange={e => setLoginPassword(e.target.value)}
-                  />
+                <form onSubmit={handleVerify2FA} className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="font-label-md text-xs font-semibold text-on-surface-variant px-1" htmlFor="totpCode">
+                      Kode 6-Digit Google Authenticator
+                    </label>
+                    <input 
+                      className="w-full px-4 py-3.5 bg-surface-container-low border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none text-center font-mono text-xl tracking-[0.4em] font-bold" 
+                      id="totpCode" 
+                      type="text" 
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      placeholder="000000" 
+                      required 
+                      autoFocus
+                      value={twoFactorCode} 
+                      onChange={e => setTwoFactorCode(e.target.value.replace(/\D/g, ''))}
+                    />
+                  </div>
+
+                  <button 
+                    className="w-full py-4 bg-primary text-on-primary font-bold rounded-xl hover:bg-primary/90 active:scale-[0.98] transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 mt-4 disabled:opacity-50" 
+                    type="submit"
+                    disabled={twoFactorCode.length < 6 || mfaLoading}
+                  >
+                    <span>{mfaLoading ? 'Memverifikasi...' : 'Verifikasi & Login'}</span>
+                    <ArrowRight className="w-5 h-5" />
+                  </button>
+
                   <button 
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-primary transition-colors"
+                    onClick={() => { setRequire2FA(false); setLoginError(''); setTwoFactorCode(''); }}
+                    className="w-full text-xs font-semibold text-on-surface-variant hover:text-primary transition-colors py-2"
                   >
-                    <Eye className="w-5 h-5" />
+                    ← Kembali ke Login Email/Password
                   </button>
-                </div>
+                </form>
               </div>
+            ) : (
+              <>
+                <div className="mb-8">
+                  <h2 className="text-3xl font-bold text-on-surface mb-2 font-headline-lg">Welcome back</h2>
+                  <p className="text-on-surface-variant font-body-md">Log in to manage your high-volume WhatsApp communication.</p>
+                </div>
 
-              <button 
-                className="w-full py-4 bg-primary text-on-primary font-bold rounded-xl hover:bg-primary/90 active:scale-[0.98] transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 mt-6" 
-                type="submit"
-              >
-                <span>Login</span>
-                <ArrowRight className="w-5 h-5" />
-              </button>
-            </form>
+                {loginError && (
+                  <div className="flex items-start gap-3 bg-error-container text-error px-4 py-3.5 rounded-xl mb-6 border-2 border-error/30 animate-toast-in">
+                    <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-sm">Login Gagal</p>
+                      <p className="text-xs mt-0.5 opacity-90">{loginError}</p>
+                    </div>
+                  </div>
+                )}
+
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="font-label-md text-xs font-semibold text-on-surface-variant px-1" htmlFor="email">Email</label>
+                    <div className="relative group">
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-outline group-focus-within:text-primary transition-colors" />
+                      <input 
+                        className="w-full pl-12 pr-4 py-3.5 bg-surface-container-low border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" 
+                        id="email" 
+                        type="email" 
+                        placeholder="admin@sendago.com" 
+                        required 
+                        value={loginEmail} 
+                        onChange={e => setLoginEmail(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="font-label-md text-xs font-semibold text-on-surface-variant px-1" htmlFor="password">Password</label>
+                    <div className="relative group">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-outline group-focus-within:text-primary transition-colors" />
+                      <input 
+                        className="w-full pl-12 pr-12 py-3.5 bg-surface-container-low border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" 
+                        id="password" 
+                        type={showPassword ? 'text' : 'password'} 
+                        placeholder="••••••••" 
+                        required 
+                        value={loginPassword} 
+                        onChange={e => setLoginPassword(e.target.value)}
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-primary transition-colors"
+                      >
+                        <Eye className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <button 
+                    className="w-full py-4 bg-primary text-on-primary font-bold rounded-xl hover:bg-primary/90 active:scale-[0.98] transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 mt-6" 
+                    type="submit"
+                  >
+                    <span>Login</span>
+                    <ArrowRight className="w-5 h-5" />
+                  </button>
+                </form>
+              </>
+            )}
           </div>
 
           <div className="hidden md:flex w-full max-w-[420px] bg-primary/5 p-8 flex-col items-center justify-center text-center relative overflow-hidden">
@@ -909,9 +1108,16 @@ export default function App() {
             <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
               {user.name.substring(0, 2).toUpperCase()}
             </div>
-            <div className="text-xs truncate">
-              <p className="font-bold text-on-surface">{user.name}</p>
-              <button onClick={handleLogout} className="text-error hover:underline text-left">Logout</button>
+            <div className="text-xs truncate flex-1">
+              <p className="font-bold text-on-surface flex items-center gap-1">
+                <span className="truncate">{user.name}</span>
+                {user.twoFactorEnabled && <span title="Google 2FA Aktif"><Shield className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" /></span>}
+              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <button onClick={open2FAModal} className="text-primary hover:underline text-left text-[10px] font-bold">2FA Security</button>
+                <span className="text-outline">·</span>
+                <button onClick={handleLogout} className="text-error hover:underline text-left text-[10px]">Logout</button>
+              </div>
             </div>
           </div>
         </div>
@@ -1606,181 +1812,280 @@ export default function App() {
 
               {/* API Integration Reference */}
               <div className="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-6 shadow-sm space-y-6">
-                <div className="space-y-1">
-                  <h3 className="font-bold text-base flex items-center gap-2">
-                    <BookOpen className="w-5 h-5 text-primary" />
-                    API Integration Reference
-                  </h3>
-                  <p className="text-xs text-on-surface-variant">Complete endpoint details and copyable code snippets to quickly integrate SendaGo with your custom CRM or automation flow.</p>
-                </div>
+                {(() => {
+                  const effectiveApiKey =
+                    generatedPlainKey ||
+                    apiKeys.find(k => k.id === setSelectedViewKey?.name)?.plainKey ||
+                    apiKeys.find(k => k.plainKey)?.plainKey ||
+                    'sg_7a377488dbfd3485632982210f44557e57b6b27fa089fbe3';
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Left Column: Endpoint Details */}
-                  <div className="space-y-4 text-xs">
-                    <div className="space-y-2">
-                      <h4 className="font-bold text-on-surface uppercase tracking-wider text-[10px]">Endpoint</h4>
-                      <div className="flex items-center gap-2 bg-surface-container-lowest border border-outline-variant/50 p-2.5 rounded-xl">
-                        <span className="bg-primary/20 text-primary font-bold px-2 py-1 rounded text-[10px]">POST</span>
-                        <code className="font-mono break-all text-on-surface font-semibold select-all">{BACKEND_URL}/api/messages</code>
+                  const connectedDevicesList = devices.filter(d => d.status === 'connected');
+                  const selectedDevObj = devices.find(d => d.id === sendSelectedDevice) || connectedDevicesList[0] || devices[0];
+                  const effectiveDeviceId = selectedDevObj?.id || 'ea3cb9a8-a1c4-4dd9-913c-01bf0896b76e';
+
+                  return (
+                    <>
+                      <div className="space-y-1">
+                        <h3 className="font-bold text-lg text-on-surface flex items-center gap-2">
+                          <BookOpen className="w-5 h-5 text-primary" />
+                          Integrasi Aplikasi & Konfigurasi .env
+                        </h3>
+                        <p className="text-xs text-on-surface-variant">
+                          Salin variabel lingkungan <code>.env</code> atau gunakan contoh kode integrasi otomatis di bawah untuk menghubungkan aplikasi Anda (Laravel, Node.js, Python, PHP, dll) dengan SendaGo.
+                        </p>
                       </div>
-                    </div>
 
-                    <div className="space-y-2">
-                      <h4 className="font-bold text-on-surface uppercase tracking-wider text-[10px]">Authentication Headers</h4>
-                      <div className="bg-surface-container-lowest border border-outline-variant/50 p-3 rounded-xl space-y-2 font-mono text-[11px]">
-                        <div>
-                          <span className="font-bold text-primary">X-API-KEY</span>: <span className="text-on-surface-variant">your_generated_api_token</span>
-                        </div>
-                        <div className="text-[10px] text-on-surface-variant font-sans border-t border-outline-variant/20 pt-1.5 mt-1.5 leading-relaxed">
-                          Alternative: You can also pass the token as a query parameter: <code className="bg-zinc-100 px-1 py-0.5 rounded font-mono">?api_key=your_token</code>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <h4 className="font-bold text-on-surface uppercase tracking-wider text-[10px]">Body Parameters (JSON)</h4>
-                      <div className="bg-surface-container-lowest border border-outline-variant/50 rounded-xl overflow-hidden">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="bg-zinc-50 border-b border-outline-variant/30 font-bold text-on-surface-variant text-[10px] uppercase">
-                              <th className="p-2.5">Field</th>
-                              <th className="p-2.5">Type</th>
-                              <th className="p-2.5">Description</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-outline-variant/20">
-                            <tr>
-                              <td className="p-2.5 font-mono font-bold text-primary">to</td>
-                              <td className="p-2.5 text-on-surface-variant">string</td>
-                              <td className="p-2.5 text-on-surface-variant">Recipient phone number (e.g. <code className="bg-zinc-100 px-1 py-0.5 rounded">0812345678</code> or <code className="bg-zinc-100 px-1 py-0.5 rounded">62812345678</code>). Autoconverted.</td>
-                            </tr>
-                            <tr>
-                              <td className="p-2.5 font-mono font-bold text-primary">body</td>
-                              <td className="p-2.5 text-on-surface-variant">string</td>
-                              <td className="p-2.5 text-on-surface-variant">The content of the WhatsApp message. Markdown formatting (bold, italic, etc) is supported.</td>
-                            </tr>
-                            <tr>
-                              <td className="p-2.5 font-mono font-bold">deviceId</td>
-                              <td className="p-2.5 text-on-surface-variant">string</td>
-                              <td className="p-2.5 text-on-surface-variant"><em>Optional.</em> Specific Device UUID. If omitted, sends via the first available connected device.</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Column: Code Snippets */}
-                  <div className="space-y-4 flex flex-col font-sans">
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-bold text-on-surface uppercase tracking-wider text-[10px] flex items-center gap-1">
-                        <Terminal className="w-3.5 h-3.5 text-primary" />
-                        Quick Start Snippets
-                      </h4>
-                      <div className="flex bg-surface-container-high rounded-xl p-0.5 border border-outline-variant/30 text-[10px] font-bold">
-                        {(['curl', 'nodejs', 'python', 'php'] as const).map(lang => (
+                      {/* QUICK .env CONFIGURATION CARD */}
+                      <div className="bg-surface-container-lowest border-2 border-primary/20 p-5 rounded-2xl space-y-4 shadow-sm">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-outline-variant/30 pb-3">
+                          <h4 className="font-bold text-xs text-primary uppercase tracking-wider flex items-center gap-1.5">
+                            <Key className="w-4 h-4" />
+                            File Environment Application Variables (.env)
+                          </h4>
                           <button
-                            key={lang}
                             type="button"
-                            onClick={() => setActiveDocLanguage(lang)}
-                            className={`px-3 py-1.5 rounded-lg transition-all capitalize ${
-                              activeDocLanguage === lang 
-                                ? 'bg-primary text-on-primary shadow-sm' 
-                                : 'text-on-surface-variant hover:text-on-surface'
-                            }`}
+                            onClick={() => {
+                              const envText = `SENDAGO_BASE_URL=${BACKEND_URL}\nSENDAGO_API_KEY=${effectiveApiKey}\nSENDAGO_DEVICE_ID=${effectiveDeviceId}`;
+                              navigator.clipboard.writeText(envText);
+                              addToast('Semua variabel .env berhasil disalin!', 'success');
+                            }}
+                            className="bg-primary text-on-primary font-bold px-3.5 py-1.5 rounded-xl text-xs hover:opacity-90 flex items-center gap-1.5 transition-all self-start sm:self-auto"
                           >
-                            {lang === 'nodejs' ? 'Node.js' : lang}
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Salin Semua .env</span>
                           </button>
-                        ))}
-                      </div>
-                    </div>
+                        </div>
 
-                    <div className="bg-zinc-950 text-zinc-100 rounded-xl p-4 font-mono text-[11px] leading-relaxed relative group overflow-x-auto flex-1 flex flex-col min-h-[220px]">
-                      <div className="flex-1 whitespace-pre select-all text-left">
-                        {activeDocLanguage === 'curl' && `curl -X POST "${BACKEND_URL}/api/messages" \\
+                        {/* Interactive Selectors */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-sans">
+                          {/* Key Selector */}
+                          <div className="space-y-1.5">
+                            <label className="font-bold text-on-surface flex justify-between items-center text-[11px]">
+                              <span>SENDAGO_API_KEY</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(effectiveApiKey);
+                                  addToast('SENDAGO_API_KEY disalin!', 'success');
+                                }}
+                                className="text-primary hover:underline font-bold text-[10px] flex items-center gap-1"
+                              >
+                                <Copy className="w-3 h-3" /> Salin Key
+                              </button>
+                            </label>
+                            <div className="bg-surface-container border border-outline-variant rounded-xl p-2 font-mono text-[11px] break-all select-all font-semibold text-primary">
+                              {effectiveApiKey}
+                            </div>
+                          </div>
+
+                          {/* Device Selector */}
+                          <div className="space-y-1.5">
+                            <label className="font-bold text-on-surface flex justify-between items-center text-[11px]">
+                              <span>SENDAGO_DEVICE_ID</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(effectiveDeviceId);
+                                  addToast('SENDAGO_DEVICE_ID disalin!', 'success');
+                                }}
+                                className="text-primary hover:underline font-bold text-[10px] flex items-center gap-1"
+                              >
+                                <Copy className="w-3 h-3" /> Salin Device ID
+                              </button>
+                            </label>
+                            <select
+                              value={sendSelectedDevice || effectiveDeviceId}
+                              onChange={e => setSendSelectedDevice(e.target.value)}
+                              className="w-full px-3 py-2 bg-surface-container border border-outline-variant rounded-xl font-mono text-[11px] outline-none font-semibold text-on-surface"
+                            >
+                              {devices.map(d => (
+                                <option key={d.id} value={d.id}>
+                                  {d.label} ({d.phoneNumber || 'No WhatsApp'}) - {d.id} [{d.status}]
+                                </option>
+                              ))}
+                              {devices.length === 0 && (
+                                <option value={effectiveDeviceId}>Default Device ID: {effectiveDeviceId}</option>
+                              )}
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Raw .env Block */}
+                        <div className="bg-zinc-950 text-zinc-100 p-4 rounded-xl font-mono text-[11px] space-y-1 overflow-x-auto relative select-all border border-zinc-800">
+                          <p className="text-zinc-500 text-[10px] font-sans"># Salin dan tempel baris di bawah ini ke file .env aplikasi Anda:</p>
+                          <p className="text-emerald-400 font-bold">SENDAGO_BASE_URL={BACKEND_URL}</p>
+                          <p className="text-emerald-400 font-bold">SENDAGO_API_KEY={effectiveApiKey}</p>
+                          <p className="text-emerald-400 font-bold">SENDAGO_DEVICE_ID={effectiveDeviceId}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Left Column: Endpoint Details */}
+                        <div className="space-y-4 text-xs">
+                          <div className="space-y-2">
+                            <h4 className="font-bold text-on-surface uppercase tracking-wider text-[10px]">Endpoint API</h4>
+                            <div className="flex items-center gap-2 bg-surface-container-lowest border border-outline-variant/50 p-2.5 rounded-xl">
+                              <span className="bg-primary/20 text-primary font-bold px-2 py-1 rounded text-[10px]">POST</span>
+                              <code className="font-mono break-all text-on-surface font-semibold select-all">{BACKEND_URL}/api/messages</code>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <h4 className="font-bold text-on-surface uppercase tracking-wider text-[10px]">Authentication Header</h4>
+                            <div className="bg-surface-container-lowest border border-outline-variant/50 p-3 rounded-xl space-y-2 font-mono text-[11px]">
+                              <div>
+                                <span className="font-bold text-primary">X-API-KEY</span>: <span className="text-on-surface-variant select-all">{effectiveApiKey}</span>
+                              </div>
+                              <div className="text-[10px] text-on-surface-variant font-sans border-t border-outline-variant/20 pt-1.5 mt-1.5 leading-relaxed">
+                                Alternatif: Anda juga dapat mengirimkan token via query parameter: <code className="bg-zinc-100 px-1 py-0.5 rounded font-mono">?api_key={effectiveApiKey}</code>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <h4 className="font-bold text-on-surface uppercase tracking-wider text-[10px]">Parameter Request (JSON Body)</h4>
+                            <div className="bg-surface-container-lowest border border-outline-variant/50 rounded-xl overflow-hidden">
+                              <table className="w-full text-left border-collapse">
+                                <thead>
+                                  <tr className="bg-zinc-50 border-b border-outline-variant/30 font-bold text-on-surface-variant text-[10px] uppercase">
+                                    <th className="p-2.5">Field</th>
+                                    <th className="p-2.5">Type</th>
+                                    <th className="p-2.5">Deskripsi</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-outline-variant/20 text-[11px]">
+                                  <tr>
+                                    <td className="p-2.5 font-mono font-bold text-primary">to</td>
+                                    <td className="p-2.5 text-on-surface-variant font-mono">string</td>
+                                    <td className="p-2.5 text-on-surface-variant">Nomor HP tujuan (misal <code className="bg-zinc-100 px-1 py-0.5 rounded">081234567890</code> atau <code className="bg-zinc-100 px-1 py-0.5 rounded">6281234567890</code>). Auto-format.</td>
+                                  </tr>
+                                  <tr>
+                                    <td className="p-2.5 font-mono font-bold text-primary">body</td>
+                                    <td className="p-2.5 text-on-surface-variant font-mono">string</td>
+                                    <td className="p-2.5 text-on-surface-variant">Isi pesan WhatsApp / OTP. Mendukung format cetak tebal (*bold*), miring (_italic_), dll.</td>
+                                  </tr>
+                                  <tr>
+                                    <td className="p-2.5 font-mono font-bold">deviceId</td>
+                                    <td className="p-2.5 text-on-surface-variant font-mono">string</td>
+                                    <td className="p-2.5 text-on-surface-variant"><em>Opsional.</em> UUID Device spesifik (<code className="bg-zinc-100 px-1 py-0.5 rounded">{effectiveDeviceId}</code>). Jika dikosongkan, menggunakan antrean rotasi device terhubung.</td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right Column: Dynamic Code Snippets */}
+                        <div className="space-y-4 flex flex-col font-sans">
+                          <div className="flex justify-between items-center">
+                            <h4 className="font-bold text-on-surface uppercase tracking-wider text-[10px] flex items-center gap-1">
+                              <Terminal className="w-3.5 h-3.5 text-primary" />
+                              Contoh Kode Integrasi
+                            </h4>
+                            <div className="flex bg-surface-container-high rounded-xl p-0.5 border border-outline-variant/30 text-[10px] font-bold">
+                              {(['curl', 'nodejs', 'python', 'php'] as const).map(lang => (
+                                <button
+                                  key={lang}
+                                  type="button"
+                                  onClick={() => setActiveDocLanguage(lang)}
+                                  className={`px-3 py-1.5 rounded-lg transition-all capitalize ${
+                                    activeDocLanguage === lang
+                                      ? 'bg-primary text-on-primary shadow-sm'
+                                      : 'text-on-surface-variant hover:text-on-surface'
+                                  }`}
+                                >
+                                  {lang === 'nodejs' ? 'Node.js' : lang}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="bg-zinc-950 text-zinc-100 rounded-xl p-4 font-mono text-[11px] leading-relaxed relative group overflow-x-auto flex-1 flex flex-col min-h-[240px] border border-zinc-800">
+                            <div className="flex-1 whitespace-pre select-all text-left">
+                              {activeDocLanguage === 'curl' && `curl -X POST "${BACKEND_URL}/api/messages" \\
   -H "Content-Type: application/json" \\
-  -H "X-API-KEY: your_api_key_here" \\
+  -H "X-API-KEY: ${effectiveApiKey}" \\
   -d '{
     "to": "081234567890",
-    "body": "Hello from SendaGo WA Gateway!",
-    "deviceId": "OPTIONAL_DEVICE_UUID"
+    "body": "Kode OTP Anda adalah: 839201",
+    "deviceId": "${effectiveDeviceId}"
   }'`}
 
-                        {activeDocLanguage === 'nodejs' && `const axios = require('axios');
+                              {activeDocLanguage === 'nodejs' && `const axios = require('axios');
 
 axios.post('${BACKEND_URL}/api/messages', {
   to: '081234567890',
-  body: 'Hello from SendaGo WA Gateway!',
-  deviceId: 'OPTIONAL_DEVICE_UUID'
+  body: 'Kode OTP Anda adalah: 839201',
+  deviceId: '${effectiveDeviceId}'
 }, {
   headers: {
-    'X-API-KEY': 'your_api_key_here'
+    'Content-Type': 'application/json',
+    'X-API-KEY': '${effectiveApiKey}'
   }
 })
 .then(res => console.log('Success:', res.data))
 .catch(err => console.error('Error:', err.response?.data || err.message));`}
 
-                        {activeDocLanguage === 'python' && `import requests
+                              {activeDocLanguage === 'python' && `import requests
 
 url = "${BACKEND_URL}/api/messages"
 headers = {
-    "X-API-KEY": "your_api_key_here",
+    "X-API-KEY": "${effectiveApiKey}",
     "Content-Type": "application/json"
 }
 payload = {
     "to": "081234567890",
-    "body": "Hello from SendaGo WA Gateway!",
-    "deviceId": "OPTIONAL_DEVICE_UUID"
+    "body": "Kode OTP Anda adalah: 839201",
+    "deviceId": "${effectiveDeviceId}"
 }
 
 response = requests.post(url, json=payload, headers=headers)
 print(response.status_code, response.json())`}
 
-                        {activeDocLanguage === 'php' && `<?php
-$ch = curl_init('${BACKEND_URL}/api/messages');
-$payload = json_encode([
-    "to" => "081234567890",
-    "body" => "Hello from SendaGo WA Gateway!",
-    "deviceId" => "OPTIONAL_DEVICE_UUID"
+                              {activeDocLanguage === 'php' && `<?php
+// Laravel Http Client Example:
+use Illuminate\\Support\\Facades\\Http;
+
+$response = Http::withHeaders([
+    'Content-Type' => 'application/json',
+    'X-API-KEY' => '${effectiveApiKey}',
+])->post('${BACKEND_URL}/api/messages', [
+    'to' => '081234567890',
+    'body' => 'Kode OTP Anda adalah: 839201',
+    'deviceId' => '${effectiveDeviceId}'
 ]);
 
-curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'Content-Type: application/json',
-    'X-API-KEY: your_api_key_here'
-]);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-$response = curl_exec($ch);
-curl_close($ch);
+echo $response->body();`}
+                            </div>
 
-echo $response;`}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                let text = '';
+                                if (activeDocLanguage === 'curl') {
+                                  text = `curl -X POST "${BACKEND_URL}/api/messages" \\\n  -H "Content-Type: application/json" \\\n  -H "X-API-KEY: ${effectiveApiKey}" \\\n  -d '{\n    "to": "081234567890",\n    "body": "Kode OTP Anda adalah: 839201",\n    "deviceId": "${effectiveDeviceId}"\n  }'`;
+                                } else if (activeDocLanguage === 'nodejs') {
+                                  text = `const axios = require('axios');\n\naxios.post('${BACKEND_URL}/api/messages', {\n  to: '081234567890',\n  body: 'Kode OTP Anda adalah: 839201',\n  deviceId: '${effectiveDeviceId}'\n}, {\n  headers: {\n    'Content-Type': 'application/json',\n    'X-API-KEY': '${effectiveApiKey}'\n  }\n})\n.then(res => console.log('Success:', res.data))\n.catch(err => console.error('Error:', err.response?.data || err.message));`;
+                                } else if (activeDocLanguage === 'python') {
+                                  text = `import requests\n\nurl = "${BACKEND_URL}/api/messages"\nheaders = {\n    "X-API-KEY": "${effectiveApiKey}",\n    "Content-Type": "application/json"\n}\npayload = {\n    "to": "081234567890",\n    "body": "Kode OTP Anda adalah: 839201",\n    "deviceId": "${effectiveDeviceId}"\n}\n\nresponse = requests.post(url, json=payload, headers=headers)\nprint(response.status_code, response.json())`;
+                                } else if (activeDocLanguage === 'php') {
+                                  text = `<?php\nuse Illuminate\\Support\\Facades\\Http;\n\n$response = Http::withHeaders([\n    'Content-Type' => 'application/json',\n    'X-API-KEY' => '${effectiveApiKey}',\n])->post('${BACKEND_URL}/api/messages', [\n    'to' => '081234567890',\n    'body' => 'Kode OTP Anda adalah: 839201',\n    'deviceId' => '${effectiveDeviceId}'\n]);\n\necho $response->body();`;
+                                }
+                                navigator.clipboard.writeText(text);
+                                addToast('Snippet berhasil disalin!', 'success');
+                              }}
+                              className="absolute top-3 right-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white p-2 rounded-lg transition-colors flex items-center gap-1.5 font-bold"
+                              title="Salin Kode"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                              <span>Salin</span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          let text = '';
-                          if (activeDocLanguage === 'curl') {
-                            text = `curl -X POST "${BACKEND_URL}/api/messages" \\\n  -H "Content-Type: application/json" \\\n  -H "X-API-KEY: your_api_key_here" \\\n  -d '{\n    "to": "081234567890",\n    "body": "Hello from SendaGo WA Gateway!",\n    "deviceId": "OPTIONAL_DEVICE_UUID"\n  }'`;
-                          } else if (activeDocLanguage === 'nodejs') {
-                            text = `const axios = require('axios');\n\naxios.post('${BACKEND_URL}/api/messages', {\n  to: '081234567890',\n  body: 'Hello from SendaGo WA Gateway!',\n  deviceId: 'OPTIONAL_DEVICE_UUID'\n}, {\n  headers: {\n    'X-API-KEY': 'your_api_key_here'\n  }\n})\n.then(res => console.log('Success:', res.data))\n.catch(err => console.error('Error:', err.response?.data || err.message));`;
-                          } else if (activeDocLanguage === 'python') {
-                            text = `import requests\n\nurl = "${BACKEND_URL}/api/messages"\nheaders = {\n    "X-API-KEY": "your_api_key_here",\n    "Content-Type": "application/json"\n}\npayload = {\n    "to": "081234567890",\n    "body": "Hello from SendaGo WA Gateway!",\n    "deviceId": "OPTIONAL_DEVICE_UUID"\n}\n\nresponse = requests.post(url, json=payload, headers=headers)\nprint(response.status_code, response.json())`;
-                          } else if (activeDocLanguage === 'php') {
-                            text = `<?php\n$ch = curl_init('${BACKEND_URL}/api/messages');\n$payload = json_encode([\n    "to" => "081234567890",\n    "body" => "Hello from SendaGo WA Gateway!",\n    "deviceId" => "OPTIONAL_DEVICE_UUID"\n]);\n\ncurl_setopt($ch, CURLOPT_POSTFIELDS, $payload);\ncurl_setopt($ch, CURLOPT_HTTPHEADER, [\n    'Content-Type: application/json',\n    'X-API-KEY: your_api_key_here'\n]);\ncurl_setopt($ch, CURLOPT_RETURNTRANSFER, true);\n$response = curl_exec($ch);\ncurl_close($ch);\n\necho $response;`;
-                          }
-                          navigator.clipboard.writeText(text);
-                          addToast('Snippet copied to clipboard!', 'success');
-                        }}
-                        className="absolute top-3 right-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white p-2 rounded-lg transition-colors flex items-center gap-1.5"
-                        title="Copy Code"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Copy</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Panduan Integrasi Dinamis (PMB & E-Commerce) */}
@@ -2154,6 +2459,140 @@ Http::withHeaders([
                 Confirm
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Google 2FA Management Modal */}
+      {show2FAModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative space-y-6 animate-toast-in">
+            <div className="flex items-center justify-between border-b border-outline-variant/30 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                  <Shield className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-on-surface font-headline-md">Google 2FA Authenticator</h3>
+                  <p className="text-xs text-on-surface-variant">Keamanan ekstra saat login akun</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShow2FAModal(false)}
+                className="text-on-surface-variant hover:text-on-surface text-xl font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {user?.twoFactorEnabled ? (
+              <div className="space-y-5">
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center gap-3 text-emerald-900">
+                  <Shield className="w-6 h-6 text-emerald-600 flex-shrink-0" />
+                  <div className="text-xs">
+                    <p className="font-bold text-sm">Status: 🔒 2FA Google Aktif</p>
+                    <p className="mt-0.5 opacity-90">Akun Anda dilindungi dengan enkripsi 6-digit TOTP Google Authenticator.</p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleDisable2FA} className="space-y-4 pt-2 border-t border-outline-variant/20">
+                  <p className="text-xs font-semibold text-on-surface">Nonaktifkan Google 2FA:</p>
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-on-surface-variant">Masukkan Kode OTP 2FA atau Password Anda</label>
+                    <input
+                      type="text"
+                      value={disableCode}
+                      onChange={(e) => setDisableCode(e.target.value)}
+                      placeholder="Kode OTP 6-digit"
+                      className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant rounded-xl outline-none text-xs font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <input
+                      type="password"
+                      value={disablePassword}
+                      onChange={(e) => setDisablePassword(e.target.value)}
+                      placeholder="Atau Password Akun"
+                      className="w-full px-3.5 py-2.5 bg-surface-container-low border border-outline-variant rounded-xl outline-none text-xs"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={disableLoading}
+                    className="w-full py-3 bg-error-container text-error font-bold text-xs rounded-xl hover:opacity-90 transition-all disabled:opacity-50"
+                  >
+                    {disableLoading ? 'Memproses...' : 'Nonaktifkan 2FA'}
+                  </button>
+                </form>
+              </div>
+            ) : twoFactorSetupStep === 'status' ? (
+              <div className="space-y-5 text-center py-2">
+                <div className="w-16 h-16 bg-primary-container/30 text-primary rounded-3xl flex items-center justify-center mx-auto">
+                  <Shield className="w-8 h-8" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-on-surface text-base">Tingkatkan Keamanan Login</h4>
+                  <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
+                    Aktifkan Google 2FA untuk meminta kode 6-digit dari aplikasi Google Authenticator setiap kali Anda login.
+                  </p>
+                </div>
+                <button
+                  onClick={start2FASetup}
+                  disabled={setupLoading}
+                  className="w-full py-3.5 bg-primary text-on-primary font-bold text-xs rounded-xl shadow-md hover:bg-primary/90 transition-all disabled:opacity-50"
+                >
+                  {setupLoading ? 'Generasi QR Code...' : 'Aktifkan Google 2FA'}
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={confirmEnable2FA} className="space-y-5">
+                <div className="text-center space-y-3">
+                  <p className="text-xs text-on-surface-variant font-medium">
+                    1. Buka aplikasi <strong>Google Authenticator</strong> / <strong>Authy</strong> di HP Anda, lalu scan QR Code di bawah:
+                  </p>
+                  {setup2FAQrCode && (
+                    <div className="bg-white p-3 rounded-2xl inline-block shadow-md border border-outline-variant/30">
+                      <img src={setup2FAQrCode} alt="Google 2FA QR Code" className="w-44 h-44 mx-auto" />
+                    </div>
+                  )}
+                  <div className="bg-surface-container-low p-2.5 rounded-xl border border-outline-variant/30 text-center">
+                    <span className="text-[10px] text-on-surface-variant block uppercase font-bold tracking-wider">Kunci Rahasia (Manual Entry)</span>
+                    <code className="text-xs font-mono font-bold text-primary tracking-wider select-all">{setup2FASecret}</code>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-on-surface">2. Masukkan 6-Digit Kode Verifikasi dari Aplikasi:</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={setupVerifyCode}
+                    onChange={(e) => setSetupVerifyCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="000000"
+                    className="w-full px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl text-center font-mono text-lg font-bold tracking-[0.3em] outline-none"
+                    required
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTwoFactorSetupStep('status')}
+                    className="w-1/3 py-3 bg-surface-container-high text-on-surface-variant font-semibold text-xs rounded-xl"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={setupVerifyCode.length < 6 || setupLoading}
+                    className="w-2/3 py-3 bg-primary text-on-primary font-bold text-xs rounded-xl shadow-md hover:bg-primary/90 transition-all disabled:opacity-50"
+                  >
+                    {setupLoading ? 'Memverifikasi...' : 'Verifikasi & Aktifkan'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

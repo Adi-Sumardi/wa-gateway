@@ -89,7 +89,7 @@ const startQueueWorker = (deviceId: string) => {
 
     // 1. SMART SLEEP period check: pause queue processing during specified hours (anti-banned)
     const currentHour = new Date().getHours();
-    const sleepEnabled = process.env.SLEEP_ENABLED !== 'false'; // Default enabled
+    const sleepEnabled = process.env.SLEEP_ENABLED === 'true'; // Default disabled for 24/7 transactional OTP
     const sleepStart = parseInt(process.env.SLEEP_START || '22', 10); // 10 PM
     const sleepEnd = parseInt(process.env.SLEEP_END || '7', 10);     // 7 AM
 
@@ -132,14 +132,20 @@ const startQueueWorker = (deviceId: string) => {
           chatId = nextMsg.to;
         } else {
           const rawNumber = nextMsg.to.replace(/@c\.us$/, '');
-          const numberId = await client.getNumberId(rawNumber);
-          if (!numberId) {
-            throw new Error(`Number ${rawNumber} is not registered on WhatsApp (getNumberId returned null)`);
+          let numberId = null;
+          try {
+            numberId = await client.getNumberId(rawNumber);
+          } catch (numErr: any) {
+            console.warn(`[Gateway] getNumberId failed for ${rawNumber}: ${numErr.message}`);
           }
-          console.log(`[Gateway] [Queue] Resolved ${rawNumber} -> ${numberId._serialized}`);
-          // Use the resolved WID (handles the newer @lid privacy identifier
-          // format, not just @c.us) as the actual send target.
-          chatId = numberId._serialized;
+
+          if (numberId && numberId._serialized) {
+            chatId = numberId._serialized;
+            console.log(`[Gateway] [Queue] Resolved ${rawNumber} -> ${chatId}`);
+          } else {
+            chatId = `${rawNumber}@c.us`;
+            console.log(`[Gateway] [Queue] getNumberId returned null for ${rawNumber}, falling back to ${chatId}`);
+          }
         }
 
         let sentMsg;

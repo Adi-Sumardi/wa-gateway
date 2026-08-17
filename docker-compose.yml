@@ -46,8 +46,9 @@ services:
     environment:
       BACKEND_URL: http://backend:5001
       GATEWAY_TOKEN: sendago-gateway-secret-token
-      MIN_SEND_DELAY: 3000
-      MAX_SEND_DELAY: 7000
+      SLEEP_ENABLED: "false"
+      MIN_SEND_DELAY: 1000
+      MAX_SEND_DELAY: 2500
       TZ: Asia/Jakarta
     volumes:
       - gateway_auth:/app/.wwebjs_auth
